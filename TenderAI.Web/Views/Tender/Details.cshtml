@@ -1,0 +1,487 @@
+@model TenderAI.Domain.Entities.Tender
+@{
+    ViewData["Title"] = "İhale Detayı";
+}
+
+<div class="mb-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Ana Sayfa</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Tender" asp-action="Index">İhaleler</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Detay</li>
+        </ol>
+    </nav>
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h1 class="h3 mb-2">@Model.Title</h1>
+            <p class="text-muted mb-0">
+                <i class="bi bi-building"></i> @Model.AuthorityName
+            </p>
+        </div>
+        <div>
+            <a asp-action="AnalysisWizard" asp-route-id="@Model.Id" class="btn btn-success me-2">
+                <i class="bi bi-magic"></i> Toplu Analiz
+            </a>
+            <span class="badge bg-primary fs-6">@Model.Status</span>
+        </div>
+    </div>
+</div>
+
+<!-- Özet Kartlar -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-muted small mb-1">İKN Numarası</div>
+                <div class="fw-bold">@Model.IKN</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-muted small mb-1">İhale Türü</div>
+                <div class="fw-bold">@Model.TenderType</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-muted small mb-1">Yaklaşık Maliyet</div>
+                <div class="fw-bold text-success">₺@Model.EstimatedCost.ToString("N0")</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-muted small mb-1">Son Teklif Tarihi</div>
+                @{
+                    var daysLeft = (Model.BidDeadline - DateTime.Now).Days;
+                    var dateClass = daysLeft <= 3 ? "text-danger" : daysLeft <= 7 ? "text-warning" : "text-primary";
+                }
+                <div class="fw-bold @dateClass">
+                    @Model.BidDeadline.ToString("dd.MM.yyyy HH:mm")
+                    <br />
+                    <small>(@daysLeft gün kaldı)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ana Bilgiler -->
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- İhale Bilgileri -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📋 İhale Bilgileri</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted" style="width: 200px;">İhale Kodu (İKN)</td>
+                            <td><code>@Model.IKN</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">İhale Adı</td>
+                            <td><strong>@Model.Title</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">İhale Türü</td>
+                            <td>@Model.TenderType</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">İhale Usulü</td>
+                            <td>@Model.ProcurementMethod</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">İhaleyi Yapan İdare</td>
+                            <td>@Model.AuthorityName</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Yaklaşık Maliyet</td>
+                            <td class="text-success fw-bold">₺@Model.EstimatedCost.ToString("N2")</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">İl / İlçe</td>
+                            <td>@Model.Province / @Model.District</td>
+                        </tr>
+                        @if (!string.IsNullOrEmpty(Model.OkasCode))
+                        {
+                            <tr>
+                                <td class="text-muted">OKAS Kodu</td>
+                                <td>@Model.OkasCode</td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="text-muted">E-İhale Mi?</td>
+                            <td>
+                                @if (Model.IsElectronic)
+                                {
+                                    <span class="badge bg-success">✓ Evet</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">✗ Hayır</span>
+                                }
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tarihler -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">📅 Önemli Tarihler</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tbody>
+                        @if (Model.OpeningDate.HasValue)
+                        {
+                            <tr>
+                                <td class="text-muted" style="width: 200px;">İhale Açılış Tarihi</td>
+                                <td>@Model.OpeningDate.Value.ToString("dd.MM.yyyy HH:mm")</td>
+                            </tr>
+                        }
+                        <tr>
+                            <td class="text-muted">Son Teklif Tarihi</td>
+                            <td>
+                                <strong class="@dateClass">
+                                    @Model.BidDeadline.ToString("dd.MM.yyyy HH:mm")
+                                </strong>
+                                <span class="badge bg-info ms-2">@daysLeft gün kaldı</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Sisteme Eklenme</td>
+                            <td>@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Son Güncelleme</td>
+                            <td>@Model.UpdatedAt.ToString("dd.MM.yyyy HH:mm")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Dokümanlar -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📄 İhale Dokümanları</h5>
+            </div>
+            <div class="card-body">
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle"></i> @TempData["SuccessMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-circle"></i> @TempData["ErrorMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+
+                @if (Model.EkapId != null)
+                {
+                    var docTypes = new[] {
+                        new { Id = "1", Name = "İhale İlanı", Icon = "file-earmark-text" },
+                        new { Id = "2", Name = "Teknik Şartname", Icon = "gear" },
+                        new { Id = "3", Name = "İdari Şartname", Icon = "file-earmark-ruled" },
+                        new { Id = "4", Name = "Sözleşme Tasarısı", Icon = "file-earmark-check" },
+                        new { Id = "5", Name = "BFTC", Icon = "file-earmark-spreadsheet" }
+                    };
+
+                    var documents = ViewBag.Documents as List<TenderAI.Domain.Entities.TenderDocument> ?? new List<TenderAI.Domain.Entities.TenderDocument>();
+                    var analyses = ViewBag.Analyses as Dictionary<Guid, TenderAI.Domain.Entities.DocumentAnalysis> ?? new Dictionary<Guid, TenderAI.Domain.Entities.DocumentAnalysis>();
+
+                    <div class="list-group">
+                        @foreach (var doc in docTypes)
+                        {
+                            var uploadedDoc = documents.FirstOrDefault(d => d.DocumentType == doc.Id && d.DownloadedAt != null);
+                            var analysis = uploadedDoc != null && analyses.ContainsKey(uploadedDoc.Id) ? analyses[uploadedDoc.Id] : null;
+
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="flex-grow-1">
+                                        <i class="bi bi-@doc.Icon text-danger me-2"></i>
+                                        <strong>@doc.Name</strong>
+                                        @if (uploadedDoc != null)
+                                        {
+                                            <span class="badge bg-success ms-2"><i class="bi bi-check-circle"></i> Yüklendi</span>
+                                        }
+                                        @if (analysis != null)
+                                        {
+                                            var riskBadge = analysis.RiskLevel switch { "Düşük" => "bg-success", "Orta" => "bg-warning text-dark", "Yüksek" => "bg-danger", "Çok Yüksek" => "bg-danger", _ => "bg-secondary" };
+                                            <span class="badge @riskBadge ms-2"><i class="bi bi-robot"></i> Risk: @analysis.RiskScore</span>
+                                        }
+                                    </div>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="@Url.Action("DownloadDocument", "Tender", new { ikn = Model.IKN, islemId = doc.Id })" class="btn btn-outline-primary" title="Otomatik İndir (EKAP API)">
+                                            <i class="bi bi-download"></i> Otomatik İndir
+                                        </a>
+                                        <button type="button" class="btn btn-outline-success" onclick="showUploadModal('@doc.Id', '@doc.Name')" title="Manuel Yükle">
+                                            <i class="bi bi-upload"></i> Manuel Yükle
+                                        </button>
+                                        @if (uploadedDoc != null)
+                                        {
+                                            if (analysis == null)
+                                            {
+                                                <button type="button" class="btn btn-outline-info" onclick="analyzeDocument('@uploadedDoc.Id', '@doc.Name')" id="analyzeBtn_@uploadedDoc.Id" title="AI ile Analiz Et">
+                                                    <i class="bi bi-robot"></i> Analiz Et
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <a href="@Url.Action("AnalysisResult", "Tender", new { documentId = uploadedDoc.Id })" class="btn btn-outline-info" title="Analiz Sonucunu Gör">
+                                                    <i class="bi bi-eye"></i> Sonuç
+                                                </a>
+                                                <button type="button" class="btn btn-outline-warning" onclick="reAnalyzeDocument('@uploadedDoc.Id', '@doc.Name')" id="reAnalyzeBtn_@uploadedDoc.Id" title="Yeniden Analiz Et">
+                                                    <i class="bi bi-arrow-repeat"></i> Yeniden Analiz
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle"></i> <strong>Nasıl çalışır?</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>EKAP:</strong> EKAP sitesinde dokümanı indirin (captcha çözmeniz gerekebilir)</li>
+                            <li><strong>Yükle:</strong> İndirdiğiniz PDF/ZIP dosyasını sisteme yükleyin</li>
+                            <li>Yüklenen dokümanlar AI analizi için kullanılacaktır</li>
+                        </ul>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Bu ihale için EKAP ID bilgisi bulunamadı. Dökümanlar gösterilemiyor.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Manuel Yükleme Modal -->
+        <div class="modal fade" id="uploadModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form id="uploadForm" asp-controller="Tender" asp-action="UploadDocument" method="post" enctype="multipart/form-data">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Doküman Yükle: <span id="modalDocName"></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" name="ikn" value="@Model.IKN" />
+                            <input type="hidden" name="documentType" id="modalDocType" />
+                            <div class="mb-3">
+                                <label for="fileInput" class="form-label">Dosya Seçin (PDF, DOC, DOCX veya ZIP)</label>
+                                <input type="file" class="form-control" name="file" id="fileInput" accept=".pdf,.doc,.docx,.zip" required />
+                                <div class="form-text">Maksimum dosya boyutu: 50MB</div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-upload"></i> Yükle
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Hızlı İşlemler -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">⚡ Hızlı İşlemler</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    @if (Model.RiskAnalysis == null)
+                    {
+                        <form asp-controller="Tender" asp-action="StartAnalysis" method="post">
+                            <input type="hidden" name="tenderId" value="@Model.Id" />
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-robot"></i> AI ile Analiz Et
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Tender" asp-action="AnalysisWizard" asp-route-id="@Model.Id" class="btn btn-info">
+                            <i class="bi bi-graph-up"></i> Analiz Sonuçlarını Gör
+                        </a>
+                    }
+                    <a href="https://ekap.kik.gov.tr/EKAP/Ortak/IhaleArama/index.html?IKN=@Model.IKN"
+                       target="_blank" class="btn btn-outline-primary">
+                        <i class="bi bi-box-arrow-up-right"></i> EKAP'ta Görüntüle
+                    </a>
+                    <a asp-controller="Tender" asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Listeye Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Analizi -->
+        @if (Model.RiskAnalysis != null)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚠️ Risk Analizi</h5>
+                </div>
+                <div class="card-body">
+                    @{
+                        var riskBadgeClass = Model.RiskAnalysis.RiskLevel switch
+                        {
+                            "Düşük" => "bg-success",
+                            "Orta" => "bg-warning text-dark",
+                            "Yüksek" => "bg-danger",
+                            "Çok Yüksek" => "bg-danger",
+                            _ => "bg-secondary"
+                        };
+                    }
+                    <div class="text-center mb-3">
+                        <div class="display-4 fw-bold mb-2">@Model.RiskAnalysis.TotalRiskScore.ToString("F0")</div>
+                        <span class="badge @riskBadgeClass fs-6">@Model.RiskAnalysis.RiskLevel Risk</span>
+                    </div>
+                    <div class="alert alert-light mb-0">
+                        <strong>Risk Faktörleri:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Finansal Risk: @Model.RiskAnalysis.FinancialRiskScore.ToString("F0")</li>
+                            <li>Operasyonel Risk: @Model.RiskAnalysis.OperationalRiskScore.ToString("F0")</li>
+                            <li>Hukuki Risk: @Model.RiskAnalysis.LegalRiskScore.ToString("F0")</li>
+                        </ul>
+                    </div>
+                    <a asp-controller="Tender" asp-action="AnalysisWizard" asp-route-id="@Model.Id"
+                       class="btn btn-info w-100 mt-3">
+                        Detaylı Analizi Gör
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Detay sayfası interaktivitesi
+        console.log('İhale Detay Sayfası Yüklendi:', '@Model.IKN');
+
+        // Modal açma fonksiyonu
+        function showUploadModal(docType, docName) {
+            document.getElementById('modalDocType').value = docType;
+            document.getElementById('modalDocName').textContent = docName;
+            document.getElementById('fileInput').value = '';
+            var modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+            modal.show();
+        }
+
+        // Doküman analizi fonksiyonu
+        function analyzeDocument(documentId, docName) {
+            const btn = document.getElementById('analyzeBtn_' + documentId);
+            if (!btn) return;
+
+            if (!confirm('Bu dokümanı Gemini AI ile analiz etmek istediğinize emin misiniz?\n\nDoküman: ' + docName)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Analiz ediliyor...';
+
+            fetch('@Url.Action("AnalyzeDocument", "Tender")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ documentId: documentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Analiz tamamlandı!\n\n' +
+                          'Risk Skoru: ' + data.analysis.riskScore + '\n' +
+                          'Risk Seviyesi: ' + data.analysis.riskLevel + '\n' +
+                          'Süre: ' + data.analysis.duration.toFixed(2) + ' saniye\n\n' +
+                          'Sayfa yenileniyor...');
+                    location.reload();
+                } else {
+                    alert('❌ Hata: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-robot"></i> Analiz Et';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Analiz sırasında bir hata oluştu: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-robot"></i> Analiz Et';
+            });
+        }
+
+        // Dokümanı yeniden analiz et (eski analizi sil ve yeniden yap)
+        function reAnalyzeDocument(documentId, docName) {
+            const btn = document.getElementById('reAnalyzeBtn_' + documentId);
+            if (!btn) return;
+
+            if (!confirm('Bu dokümanı yeniden analiz etmek istediğinize emin misiniz?\n\nEski analiz silinecek ve yeni bir analiz yapılacak.\n\nDoküman: ' + docName)) {
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Yeniden analiz ediliyor...';
+
+            fetch('@Url.Action("ReAnalyzeDocument", "Tender")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ documentId: documentId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let message = '✅ Yeniden analiz tamamlandı!\n\n' +
+                          'Risk Skoru: ' + data.analysis.riskScore + '\n' +
+                          'Risk Seviyesi: ' + data.analysis.riskLevel + '\n' +
+                          'Süre: ' + data.analysis.duration.toFixed(2) + ' saniye';
+
+                    if (data.analysis.hasBftcData) {
+                        message += '\n\n🎯 BFTC tablo verisi extract edildi!';
+                    }
+
+                    message += '\n\nSayfa yenileniyor...';
+                    alert(message);
+                    location.reload();
+                } else {
+                    alert('❌ Hata: ' + data.message);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Yeniden Analiz';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Yeniden analiz sırasında bir hata oluştu: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Yeniden Analiz';
+            });
+        }
+    </script>
+}

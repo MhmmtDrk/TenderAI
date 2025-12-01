@@ -1,0 +1,137 @@
+@{
+    ViewData["Title"] = "Admin Panel - Faz 2";
+}
+
+<div class="container mt-4">
+    <h1>🔧 Admin Panel</h1>
+    <p class="text-muted">Faz 2: İhale Sonuç Toplama Sistemi</p>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Warning"] != null)
+    {
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            @TempData["Warning"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📥 İhale Sonuçlarını Topla</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        Tamamlanmış ihalelerin sonuçlarını EKAP'tan çeker.
+                        Benchmark sistemi için geçmiş ihale verilerini toplar.
+                    </p>
+
+                    <form asp-action="CollectResults" method="post" class="mt-3">
+                        <div class="mb-3">
+                            <label for="daysBack" class="form-label">Kaç gün geriye bakılacak?</label>
+                            <select class="form-select" id="daysBack" name="daysBack">
+                                <option value="3">Son 3 gün</option>
+                                <option value="7" selected>Son 7 gün</option>
+                                <option value="14">Son 14 gün</option>
+                                <option value="30">Son 30 gün</option>
+                            </select>
+                            <div class="form-text">
+                                Seçilen süre içinde tamamlanmış ve henüz sonucu çekilmemiş ihaleler taranacak.
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-download"></i> Sonuçları Topla
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">ℹ️ Sistem Bilgileri</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Background Jobs:</h6>
+                    <ul>
+                        <li><strong>TenderSyncWorker:</strong> İhale çekme (6 saatte bir)</li>
+                        <li><strong>TenderResultCollectionWorker:</strong> Sonuç çekme (günde 1 kez)</li>
+                    </ul>
+
+                    <h6 class="mt-3">Konfigürasyon:</h6>
+                    <ul>
+                        <li><strong>ResultCollectionIntervalHours:</strong> 24 saat</li>
+                        <li><strong>ResultCollectionDaysBack:</strong> 7 gün</li>
+                    </ul>
+
+                    <div class="alert alert-info mt-3">
+                        <small>
+                            <i class="bi bi-info-circle"></i>
+                            Background worker otomatik olarak çalışmaktadır.
+                            Manuel çekme sadece acil durumlarda kullanılmalıdır.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">📊 İstatistikler</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        <i class="bi bi-clock-history"></i>
+                        İstatistikler yakında eklenecek...
+                    </p>
+                    <ul>
+                        <li>Toplam çekilen sonuç sayısı</li>
+                        <li>Son 24 saatte çekilen sonuçlar</li>
+                        <li>Parse başarı oranı</li>
+                        <li>Ortalama sözleşme bedeli</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Dashboard'a Dön
+        </a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                var bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+}

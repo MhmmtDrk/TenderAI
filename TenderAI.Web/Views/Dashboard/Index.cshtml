@@ -1,0 +1,199 @@
+@model TenderAI.Web.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="mb-4">
+    <h1 class="h3 mb-3">📊 Dashboard</h1>
+    <p class="text-muted">TenderAI Kamu İhale Analiz Platformu</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2">Aktif İhaleler</h6>
+                <h2 class="mb-0">@Model.ActiveTenderCount</h2>
+                <small>Şu anda açık</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2">Bu Ay Analiz</h6>
+                <h2 class="mb-0">@Model.AnalyzedThisMonth</h2>
+                <small>Tamamlanan analiz</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2">Ortalama Risk</h6>
+                <h2 class="mb-0">45/100</h2>
+                <small>Genel risk skoru</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2">Potansiyel Tasarruf</h6>
+                <h2 class="mb-0">₺2.5M</h2>
+                <small>Önerilen teklifler</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Son İhaleler -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">📄 Son İhaleler</h5>
+        <a asp-controller="Tender" asp-action="Index" class="btn btn-sm btn-primary">Tümünü Gör</a>
+    </div>
+    <div class="card-body">
+        @if (Model.RecentTenders.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>İKN</th>
+                            <th>İhale Adı</th>
+                            <th>Kurum</th>
+                            <th>İl</th>
+                            <th>Son Teklif Tarihi</th>
+                            <th>Yaklaşık Maliyet</th>
+                            <th>Risk Skoru</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tender in Model.RecentTenders.Take(10))
+                        {
+                            <tr>
+                                <td><code>@tender.IKN</code></td>
+                                <td>
+                                    <strong>@tender.Title</strong>
+                                    <br />
+                                    <small class="text-muted">@tender.TenderType</small>
+                                </td>
+                                <td>@tender.AuthorityName</td>
+                                <td>@tender.Province</td>
+                                <td>
+                                    <span class="badge bg-secondary">
+                                        @tender.BidDeadline.ToString("dd.MM.yyyy")
+                                    </span>
+                                </td>
+                                <td>₺@tender.EstimatedCost.ToString("N0")</td>
+                                <td>
+                                    @if (tender.RiskScore.HasValue)
+                                    {
+                                        var badgeClass = tender.RiskLevel switch
+                                        {
+                                            "Düşük" => "bg-success",
+                                            "Orta" => "bg-warning",
+                                            "Yüksek" => "bg-danger",
+                                            _ => "bg-secondary"
+                                        };
+                                        <span class="badge @badgeClass">
+                                            @tender.RiskLevel (@tender.RiskScore.Value.ToString("F0"))
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-dark">Analiz Yok</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-controller="Tender" asp-action="AnalysisWizard" asp-route-id="@tender.Id"
+                                       class="btn btn-sm btn-success">
+                                        <i class="bi bi-stars"></i> Analiz Et
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <p class="text-muted">Henüz ihale kaydı bulunmuyor.</p>
+                <p><small>Veri toplama servisi çalıştığında ihaleler otomatik olarak burada görünecek.</small></p>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Hızlı Aksiyonlar -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">🚀 Hızlı Başlangıç</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">✅ <strong>Adım 1:</strong> İhale listesini inceleyin</li>
+                    <li class="mb-2">✅ <strong>Adım 2:</strong> İlginizi çeken bir ihale seçin</li>
+                    <li class="mb-2">✅ <strong>Adım 3:</strong> "Analiz Et" butonuna tıklayın</li>
+                    <li class="mb-2">✅ <strong>Adım 4:</strong> 9 adımlık wizard'ı tamamlayın</li>
+                    <li class="mb-2">✅ <strong>Adım 5:</strong> TenderAI'ın önerisini alın</li>
+                </ul>
+                <a asp-controller="Tender" asp-action="Index" class="btn btn-primary w-100 mt-3">
+                    İhalelere Gözat
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📊 İstatistikler</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Risk Seviyesi Dağılımı</span>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-success" style="width: 30%">Düşük</div>
+                        <div class="progress-bar bg-warning" style="width: 50%">Orta</div>
+                        <div class="progress-bar bg-danger" style="width: 20%">Yüksek</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h4 class="text-success">30%</h4>
+                        <small>Düşük Risk</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-warning">50%</h4>
+                        <small>Orta Risk</small>
+                    </div>
+                    <div class="col-4">
+                        <h4 class="text-danger">20%</h4>
+                        <small>Yüksek Risk</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Dashboard güncelleme (örnek)
+        console.log('TenderAI Dashboard loaded');
+    </script>
+}

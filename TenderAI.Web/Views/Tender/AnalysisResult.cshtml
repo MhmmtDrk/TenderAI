@@ -1,0 +1,194 @@
+@model TenderAI.Domain.Entities.DocumentAnalysis
+@{
+    ViewData["Title"] = "Doküman Analiz Sonucu";
+    var riskBadgeClass = Model.RiskLevel switch
+    {
+        "Düşük" => "bg-success",
+        "Orta" => "bg-warning text-dark",
+        "Yüksek" => "bg-danger",
+        "Çok Yüksek" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="container-fluid">
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Ana Sayfa</a></li>
+                <li class="breadcrumb-item"><a asp-controller="Tender" asp-action="Index">İhaleler</a></li>
+                <li class="breadcrumb-item"><a asp-controller="Tender" asp-action="Details" asp-route-ikn="@Model.Document.Tender.IKN">@Model.Document.Tender.IKN</a></li>
+                <li class="breadcrumb-item active">Analiz Sonucu</li>
+            </ol>
+        </nav>
+        <h1 class="h3"><i class="bi bi-robot"></i> AI Analiz Sonucu</h1>
+        <p class="text-muted">@Model.Document.DocumentTypeName - @Model.Document.Tender.Title</p>
+    </div>
+
+    <!-- Risk Skoru Özeti -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Risk Skoru</h5>
+                    <div class="display-3 fw-bold my-3">@Model.RiskScore</div>
+                    <span class="badge @riskBadgeClass fs-5">@Model.RiskLevel Risk</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Analiz Süresi</h5>
+                    <div class="display-4 fw-bold my-3">@Model.AnalysisDuration.ToString("F1")s</div>
+                    <small class="text-muted">@Model.AnalyzedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">AI Model</h5>
+                    <div class="h4 fw-bold my-3">Claude 3.5 Sonnet</div>
+                    @if (Model.TokensUsed.HasValue)
+                    {
+                        <small class="text-muted">@Model.TokensUsed.Value tokens kullanıldı</small>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Detayları -->
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-currency-dollar"></i> Finansal Riskler</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.FinancialRisks))
+                    {
+                        var risks = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.FinancialRisks);
+                        <ul class="list-unstyled">
+                            @foreach (var risk in risks ?? new List<string>())
+                            {
+                                <li class="mb-2"><i class="bi bi-exclamation-triangle text-danger me-2"></i>@risk</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Finansal risk bulunmamaktadır.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Operasyonel Riskler</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.OperationalRisks))
+                    {
+                        var risks = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.OperationalRisks);
+                        <ul class="list-unstyled">
+                            @foreach (var risk in risks ?? new List<string>())
+                            {
+                                <li class="mb-2"><i class="bi bi-exclamation-circle text-warning me-2"></i>@risk</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Operasyonel risk bulunmamaktadır.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-shield-check"></i> Hukuki Riskler</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.LegalRisks))
+                    {
+                        var risks = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.LegalRisks);
+                        <ul class="list-unstyled">
+                            @foreach (var risk in risks ?? new List<string>())
+                            {
+                                <li class="mb-2"><i class="bi bi-exclamation-diamond text-info me-2"></i>@risk</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Hukuki risk bulunmamaktadır.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Önemli Noktalar ve Öneriler -->
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-star"></i> Önemli Noktalar</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.KeyPoints))
+                    {
+                        var points = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.KeyPoints);
+                        <ul>
+                            @foreach (var point in points ?? new List<string>())
+                            {
+                                <li class="mb-2">@point</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Önemli nokta bulunamadı.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Öneriler</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.Recommendations))
+                    {
+                        var recommendations = System.Text.Json.JsonSerializer.Deserialize<List<string>>(Model.Recommendations);
+                        <ul>
+                            @foreach (var rec in recommendations ?? new List<string>())
+                            {
+                                <li class="mb-2">@rec</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">Öneri bulunamadı.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- İşlemler -->
+    <div class="text-center mb-4">
+        <a asp-controller="Tender" asp-action="Details" asp-route-ikn="@Model.Document.Tender.IKN" class="btn btn-primary">
+            <i class="bi bi-arrow-left"></i> İhale Detayına Dön
+        </a>
+    </div>
+</div>

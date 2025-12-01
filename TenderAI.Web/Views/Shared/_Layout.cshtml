@@ -1,0 +1,72 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TenderAI</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .navbar-brand { font-weight: 700; font-size: 1.5rem; }
+        .sidebar { min-height: calc(100vh - 56px); background: white; border-right: 1px solid #dee2e6; padding: 1.5rem 0; }
+        .sidebar .nav-link { color: #495057; padding: 0.75rem 1.5rem; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background-color: #f8f9fa; color: #0d6efd; }
+        .main-content { padding: 2rem; }
+        .card { border: none; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); margin-bottom: 1.5rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-controller="Dashboard" asp-action="Index">📊 TenderAI</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">👤 Kullanıcı</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-2 sidebar">
+                <div class="nav flex-column">
+                    @{
+                        var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+                    }
+                    <a class="nav-link @(controller == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">📈 Dashboard</a>
+                    <a class="nav-link @(controller == "Tender" ? "active" : "")" asp-controller="Tender" asp-action="Index">📄 İhaleler</a>
+                    <a class="nav-link" href="#">📊 Analizler</a>
+                    <a class="nav-link" href="#">📦 Ürünlerim</a>
+                </div>
+            </nav>
+
+            <main class="col-md-10 main-content">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    <footer class="text-center py-3 mt-5">
+        <div class="container">
+            &copy; 2025 TenderAI - AKPAYA Teknoloji
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

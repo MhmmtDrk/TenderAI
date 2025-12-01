@@ -1,0 +1,493 @@
+@{
+    ViewData["Title"] = "TenderAI Demo";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TenderAI - İhale Analiz Demo</title>
+    <link rel="icon" type="image/png" href="~/robot.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; }
+        .hero { text-align: center; color: white; margin-bottom: 40px; }
+        .hero h1 { font-size: 3rem; font-weight: bold; }
+        .upload-section { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 30px; }
+        .file-drop-zone {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .file-drop-zone:hover, .file-drop-zone.dragover { border-color: #764ba2; background: #f8f9ff; }
+        .file-drop-zone.has-file { border-color: #28a745; background: #f0fff4; }
+        .file-drop-zone i { font-size: 4rem; color: #667eea; margin-bottom: 20px; }
+        .file-list { margin-top: 15px; }
+        .file-item { background: #e8eaf6; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-analyze { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; padding: 15px 50px; font-size: 1.3rem; border-radius: 50px; color: white; width: 100%; margin-top: 20px; }
+        .btn-analyze:disabled { opacity: 0.6; }
+        .results-section { display: none; }
+        .result-card { background: white; border-radius: 15px; padding: 30px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .loading { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 9999; align-items: center; justify-content: center; }
+        .spinner { width: 80px; height: 80px; border: 8px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; }
+        @@keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="text-center text-white">
+            <div class="spinner mx-auto mb-3"></div>
+            <h3>AI Analiz Ediliyor...</h3>
+            <p>Dokümanlarınız yapay zeka ile analiz ediliyor, lütfen bekleyin</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="hero">
+            <h1><i class="bi bi-robot"></i> TenderAI Demo</h1>
+            <p class="lead">İhale Dokümanlarınızı Yükleyin, AI Analiz Etsin</p>
+        </div>
+
+        <div class="upload-section">
+            <h4 class="mb-4">Dökümanları Yükleyin (PDF, DOCX, DOC)</h4>
+
+            <!-- Hızlı Yükleme: Klasör veya ZIP -->
+            <div class="text-center mb-4">
+                <input type="file" id="bulkFile" webkitdirectory directory multiple style="display:none">
+                <input type="file" id="zipFile" accept=".zip" style="display:none">
+
+                <button class="btn btn-primary btn-lg me-2" onclick="document.getElementById('zipFile').click()">
+                    <i class="bi bi-file-zip"></i> ZIP Dosyası Yükle
+                </button>
+                <button class="btn btn-outline-primary btn-lg" onclick="document.getElementById('bulkFile').click()">
+                    <i class="bi bi-folder"></i> Klasör Seç
+                </button>
+
+                <p class="mt-2 mb-0">
+                    <small class="text-muted">
+                        <i class="bi bi-lightbulb"></i> Tüm dosyalarınızı bir ZIP'e koyun veya klasör seçin - otomatik ayıklayacağız
+                    </small>
+                </p>
+            </div>
+
+            <div class="text-center my-4">
+                <small class="text-muted">--- veya tek tek seçin ---</small>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="file-drop-zone" data-type="teknik" id="teknikZone">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <h5>Teknik Şartname</h5>
+                        <p>Sürükle-bırak veya tıkla</p>
+                        <input type="file" id="teknikFile" accept=".pdf,.doc,.docx" style="display:none">
+                    </div>
+                    <div class="file-list" id="teknikList"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="file-drop-zone" data-type="idari" id="idariZone">
+                        <i class="bi bi-file-earmark-text"></i>
+                        <h5>İdari Şartname</h5>
+                        <p>Sürükle-bırak veya tıkla</p>
+                        <input type="file" id="idariFile" accept=".pdf,.doc,.docx" style="display:none">
+                    </div>
+                    <div class="file-list" id="idariList"></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="file-drop-zone" data-type="sozlesme" id="sozlesmeZone">
+                        <i class="bi bi-file-earmark-check"></i>
+                        <h5>Sözleşme Tasarısı</h5>
+                        <p>Sürükle-bırak veya tıkla</p>
+                        <input type="file" id="sozlesmeFile" accept=".pdf,.doc,.docx" style="display:none">
+                    </div>
+                    <div class="file-list" id="sozlesmeList"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-analyze" id="analyzeBtn" disabled>
+                <i class="bi bi-stars"></i> AI ile Analiz Et
+            </button>
+        </div>
+
+        <div class="results-section" id="results">
+            <div class="text-center mb-4">
+                <h2 class="text-white">Analiz Sonuçları</h2>
+            </div>
+            <div id="resultsContainer"></div>
+            <div class="text-center mt-4">
+                <button class="btn btn-success btn-lg me-3" id="downloadPdfBtn" style="display:none;" onclick="downloadPdf()">
+                    <i class="bi bi-file-pdf"></i> PDF İndir
+                </button>
+                <button class="btn btn-light btn-lg" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Yeni Analiz
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        const files = { teknik: null, idari: null, sozlesme: null };
+
+        // Klasör/ZIP yükleme
+        const bulkFile = document.getElementById('bulkFile');
+        const zipFile = document.getElementById('zipFile');
+
+        // Klasör seçimi
+        bulkFile.onchange = (e) => {
+            if (e.target.files.length > 0) {
+                let count = 0;
+                for (let file of e.target.files) {
+                    if (file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
+                        // autoAssignFile başarılı olursa count arttır
+                        if (autoAssignFile(file)) {
+                            count++;
+                        }
+                    }
+                }
+                if (count > 0) {
+                    Swal.fire('Başarılı!', `${count} dosya yüklendi`, 'success');
+                }
+            }
+        };
+
+        // ZIP seçimi
+        zipFile.onchange = async (e) => {
+            if (e.target.files[0]) {
+                await handleZipFile(e.target.files[0]);
+            }
+        };
+
+        async function handleZipFile(zipFile) {
+            try {
+                const zip = await JSZip.loadAsync(zipFile);
+                const filePromises = [];
+
+                zip.forEach((relativePath, zipEntry) => {
+                    if (!zipEntry.dir && (relativePath.endsWith('.pdf') || relativePath.endsWith('.docx') || relativePath.endsWith('.doc'))) {
+                        filePromises.push(
+                            zipEntry.async('blob').then(blob => {
+                                return new File([blob], zipEntry.name, { type: blob.type });
+                            })
+                        );
+                    }
+                });
+
+                const extractedFiles = await Promise.all(filePromises);
+
+                // Sadece başarıyla atanan dosyaları say
+                let assignedCount = 0;
+                extractedFiles.forEach(file => {
+                    if (autoAssignFile(file)) {
+                        assignedCount++;
+                    }
+                });
+
+                const skippedCount = extractedFiles.length - assignedCount;
+                if (skippedCount > 0) {
+                    Swal.fire('Başarılı!', `${assignedCount} dosya yüklendi (${skippedCount} dosya atlandı)`, 'success');
+                } else {
+                    Swal.fire('Başarılı!', `${assignedCount} dosya yüklendi`, 'success');
+                }
+            } catch (error) {
+                Swal.fire('Hata', 'ZIP dosyası okunamadı', 'error');
+            }
+        }
+
+        function autoAssignFile(file) {
+            const name = file.name.toLowerCase();
+
+            // BFTC veya birim fiyat dosyalarını atla
+            if (name.includes('bftc') || name.includes('birim') || name.includes('fiyat') || name.includes('cetveli')) {
+                console.log(`BFTC dosyası atlandı: ${file.name}`);
+                return false; // Atlandı
+            }
+
+            // Pattern matching yap
+            if (!files.teknik && (name.includes('teknik') || name.includes('technical'))) {
+                handleFile('teknik', file);
+                return true; // Başarılı
+            } else if (!files.idari && (name.includes('idari') || name.includes('admin'))) {
+                handleFile('idari', file);
+                return true; // Başarılı
+            } else if (!files.sozlesme && (name.includes('sozlesme') || name.includes('contract') || name.includes('sözleşme'))) {
+                handleFile('sozlesme', file);
+                return true; // Başarılı
+            } else {
+                // Eşleşme yoksa atla - ATAMA YAPMA!
+                console.log(`Dosya türü belirlenemedi, atlandı: ${file.name}`);
+                return false; // Atlandı
+            }
+        }
+
+        // Drag & Drop + Click
+        ['teknik', 'idari', 'sozlesme'].forEach(type => {
+            const zone = document.getElementById(type + 'Zone');
+            const input = document.getElementById(type + 'File');
+            const list = document.getElementById(type + 'List');
+
+            zone.onclick = () => input.click();
+
+            zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('dragover'); };
+            zone.ondragleave = () => zone.classList.remove('dragover');
+            zone.ondrop = (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files[0]) handleFile(type, e.dataTransfer.files[0]);
+            };
+
+            input.onchange = (e) => {
+                if (e.target.files[0]) handleFile(type, e.target.files[0]);
+            };
+        });
+
+        function handleFile(type, file) {
+            files[type] = file;
+            const zone = document.getElementById(type + 'Zone');
+            const list = document.getElementById(type + 'List');
+
+            zone.classList.add('has-file');
+            list.innerHTML = `<div class="file-item">
+                <span><i class="bi bi-file-check"></i> ${file.name}</span>
+                <button class="btn btn-sm btn-danger" onclick="removeFile('${type}')">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>`;
+
+            checkReady();
+        }
+
+        function removeFile(type) {
+            files[type] = null;
+            document.getElementById(type + 'Zone').classList.remove('has-file');
+            document.getElementById(type + 'List').innerHTML = '';
+            document.getElementById(type + 'File').value = '';
+            checkReady();
+        }
+
+        function checkReady() {
+            // En az 1 dosya yüklenmiş mi kontrol et
+            document.getElementById('analyzeBtn').disabled = !(files.teknik || files.idari || files.sozlesme);
+        }
+
+        let pollingInterval = null;
+        let currentSessionId = null;
+
+        function downloadPdf() {
+            if (currentSessionId) {
+                window.location.href = `/Home/DownloadDemoPdf?sessionId=${currentSessionId}`;
+            }
+        }
+
+        document.getElementById('analyzeBtn').onclick = async () => {
+            // En az 1 dosya yüklenmiş mi kontrol et
+            if (!files.teknik && !files.idari && !files.sozlesme) {
+                Swal.fire('Uyarı', 'En az bir dosya yüklemelisiniz!', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            if (files.teknik) formData.append('teknikFile', files.teknik);
+            if (files.idari) formData.append('idariFile', files.idari);
+            if (files.sozlesme) formData.append('sozlesmeFile', files.sozlesme);
+
+            document.getElementById('loading').style.display = 'flex';
+
+            try {
+                // Dosyaları yükle ve analizi başlat (IN-MEMORY)
+                const response = await fetch('/Home/AnalyzeDemo', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (result.success && result.sessionId) {
+                    // Session ID'yi sakla (PDF indirmek için)
+                    currentSessionId = result.sessionId;
+
+                    // Polling başlat - her 3 saniyede sonuçları kontrol et
+                    pollingInterval = setInterval(() => checkAnalysisStatus(result.sessionId), 3000);
+                    checkAnalysisStatus(result.sessionId); // İlk kontrolü hemen yap
+                } else {
+                    document.getElementById('loading').style.display = 'none';
+                    Swal.fire('Hata', result.message, 'error');
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                Swal.fire('Bağlantı Hatası', 'Sunucuya bağlanırken hata oluştu', 'error');
+            }
+        };
+
+        async function checkAnalysisStatus(sessionId) {
+            try {
+                const response = await fetch(`/Home/GetAnalysisStatus?sessionId=${sessionId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Sonuçları her seferinde güncelle
+                    displayResults(result.analyses);
+                    document.getElementById('results').style.display = 'block';
+
+                    // Loading mesajını güncelle
+                    if (result.isComplete) {
+                        document.getElementById('loading').style.display = 'none';
+                        document.getElementById('downloadPdfBtn').style.display = 'inline-block'; // PDF butonunu göster
+                        document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+                        clearInterval(pollingInterval); // Polling'i durdur
+                    } else {
+                        // İlerlemeyi göster
+                        document.querySelector('#loading p').textContent =
+                            `Analiz devam ediyor... (${result.completed}/${result.total} döküman tamamlandı)`;
+                    }
+                }
+            } catch (error) {
+                console.error('Durum kontrolü hatası:', error);
+            }
+        }
+
+        function displayResults(analyses) {
+            const container = document.getElementById('resultsContainer');
+            const names = { teknik: 'Teknik Şartname', idari: 'İdari Şartname', sozlesme: 'Sözleşme Tasarısı' };
+
+            container.innerHTML = Object.entries(analyses).map(([key, a]) => {
+                // Debug: Console'a analiz objesini yazdır
+                console.log(`${names[key]} analiz objesi:`, a);
+
+                // Analiz henüz tamamlanmadıysa kontrol et
+                if (!a || a.riskScore === undefined || a.riskScore === null) {
+                    // Bu dosya yüklendi mi kontrol et
+                    const wasUploaded = files[key] !== null;
+
+                    if (wasUploaded) {
+                        // Dosya yüklendi ama henüz analiz tamamlanmadı - spinner göster
+                        return `
+                            <div class="result-card opacity-50">
+                                <h4><i class="bi bi-file-text"></i> ${names[key]}</h4>
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Analiz yapılıyor...</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Dosya hiç yüklenmedi - X ikonu göster
+                        return `
+                            <div class="result-card opacity-50">
+                                <h4><i class="bi bi-file-text"></i> ${names[key]}</h4>
+                                <div class="text-center py-4">
+                                    <i class="bi bi-x-circle text-muted" style="font-size: 3rem;"></i>
+                                    <p class="mt-2 text-muted">Dosya yüklenmediği için analiz yapılmadı</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                const badge = a.riskLevel === 'Düşük' ? 'success' : a.riskLevel === 'Yüksek' ? 'danger' : 'warning';
+                return `
+                    <div class="result-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0"><i class="bi bi-file-text"></i> ${names[key]}</h4>
+                            <div>
+                                <span class="badge bg-${badge} fs-5 me-2">Risk: ${a.riskScore}/10 - ${a.riskLevel}</span>
+                                <small class="text-muted"><i class="bi bi-clock"></i> ${a.analysisDuration}</small>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            ${(a.financialRisks || []).length ? `
+                            <div class="col-md-4">
+                                <div class="p-3 bg-warning bg-opacity-10 rounded border-start border-warning border-4">
+                                    <h6 class="mb-2"><i class="bi bi-currency-dollar text-warning"></i> Finansal Riskler</h6>
+                                    ${(a.financialRisks || []).map(r => `<div class="mb-1"><small>• ${r}</small></div>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            ${(a.operationalRisks || []).length ? `
+                            <div class="col-md-4">
+                                <div class="p-3 bg-primary bg-opacity-10 rounded border-start border-primary border-4">
+                                    <h6 class="mb-2"><i class="bi bi-gear text-primary"></i> Operasyonel Riskler</h6>
+                                    ${(a.operationalRisks || []).map(r => `<div class="mb-1"><small>• ${r}</small></div>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            ${(a.legalRisks || []).length ? `
+                            <div class="col-md-4">
+                                <div class="p-3 bg-success bg-opacity-10 rounded border-start border-success border-4">
+                                    <h6 class="mb-2"><i class="bi bi-shield-check text-success"></i> Hukuki Riskler</h6>
+                                    ${(a.legalRisks || []).map(r => `<div class="mb-1"><small>• ${r}</small></div>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+
+                        ${a.keyPoints && a.keyPoints.length ? `
+                            <div class="mt-3 p-3 bg-info bg-opacity-10 rounded border-start border-info border-4">
+                                <h6 class="mb-2"><i class="bi bi-info-circle text-info"></i> Önemli Noktalar</h6>
+                                ${a.keyPoints.map(p => `<div class="mb-1"><small>• ${p}</small></div>`).join('')}
+                            </div>
+                        ` : ''}
+
+                        ${a.recommendations && a.recommendations.length ? `
+                            <div class="mt-3 p-3 bg-success bg-opacity-10 rounded border-start border-success border-4">
+                                <h6 class="mb-2"><i class="bi bi-lightbulb text-success"></i> Öneriler</h6>
+                                ${a.recommendations.map(r => `<div class="mb-1"><small>• ${r}</small></div>`).join('')}
+                            </div>
+                        ` : ''}
+
+                        ${a.productRecommendations && a.productRecommendations.length ? `
+                            <div class="mt-3 p-3 bg-primary bg-opacity-10 rounded border-start border-primary border-4">
+                                <h6 class="mb-3"><i class="bi bi-cart-check text-primary"></i> Ürün/Marka Önerileri</h6>
+                                ${(() => {
+                                    // Kategorilere göre grupla
+                                    const grouped = {};
+                                    a.productRecommendations.forEach(p => {
+                                        const parts = p.split(':');
+                                        const category = parts[0]?.trim() || 'Diğer';
+                                        const rest = parts.length > 1 ? parts.slice(1).join(':').trim() : '';
+
+                                        if (!grouped[category]) grouped[category] = [];
+                                        if (rest) grouped[category].push(rest);
+                                    });
+
+                                    // Her kategori için HTML oluştur
+                                    return Object.entries(grouped).map(([category, items]) => `
+                                        <div class="mb-3">
+                                            <div class="fw-bold text-primary mb-2">${category}</div>
+                                            ${items.map(item => `
+                                                <div class="ms-3 mb-1">
+                                                    <small>- ${item}</small>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    `).join('');
+                                })()}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

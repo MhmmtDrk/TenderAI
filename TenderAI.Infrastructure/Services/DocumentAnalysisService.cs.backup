@@ -1,0 +1,297 @@
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using TenderAI.Domain.Entities;
+using TenderAI.Infrastructure.Data;
+
+namespace TenderAI.Infrastructure.Services;
+
+/// <summary>
+/// Claude API ile doküman analiz servisi
+/// </summary>
+public class DocumentAnalysisService : IDocumentAnalysisService
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IDocumentService _documentService;
+    private readonly ILogger<DocumentAnalysisService> _logger;
+    private readonly HttpClient _httpClient;
+    private readonly string _geminiApiKey;
+    private readonly string _model = "gemini-1.5-pro";
+
+    public DocumentAnalysisService(
+        ApplicationDbContext context,
+        IDocumentService documentService,
+        ILogger<DocumentAnalysisService> logger,
+        IConfiguration configuration,
+        IHttpClientFactory httpClientFactory)
+    {
+        _context = context;
+        _documentService = documentService;
+        _logger = logger;
+        _httpClient = httpClientFactory.CreateClient();
+        _geminiApiKey = configuration["Gemini:ApiKey"]
+            ?? throw new InvalidOperationException("Gemini API Key bulunamadı. appsettings.json'a ekleyin.");
+    }
+
+    public async Task<DocumentAnalysis?> AnalyzeDocumentAsync(Guid documentId)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Dokümanı kontrol et
+            var document = await _context.TenderDocuments
+                .Include(d => d.Tender)
+                .FirstOrDefaultAsync(d => d.Id == documentId);
+
+            if (document == null)
+            {
+                _logger.LogWarning("Doküman bulunamadı: {DocumentId}", documentId);
+                return null;
+            }
+
+            // Daha önce analiz edilmiş mi kontrol et
+            var existingAnalysis = await _context.DocumentAnalyses
+                .FirstOrDefaultAsync(a => a.DocumentId == documentId);
+
+            if (existingAnalysis != null)
+            {
+                _logger.LogInformation("Doküman zaten analiz edilmiş: {DocumentId}", documentId);
+                return existingAnalysis;
+            }
+
+            // PDF dosyasını oku
+            var pdfBytes = await _documentService.ReadDocumentFileAsync(documentId);
+            if (pdfBytes == null || pdfBytes.Length == 0)
+            {
+                _logger.LogWarning("Doküman dosyası okunamadı: {DocumentId}", documentId);
+                return null;
+            }
+
+            _logger.LogInformation("Doküman analizi başlatılıyor: {DocumentId}, {FileName}, Size: {Size} bytes",
+                documentId, document.FileName, pdfBytes.Length);
+
+            // PDF'i base64'e çevir
+            var base64Pdf = Convert.ToBase64String(pdfBytes);
+
+            // Claude API'ye gönder
+            var analysisResult = await CallClaudeApiAsync(base64Pdf, document);
+
+            if (analysisResult == null)
+            {
+                _logger.LogWarning("Claude API'den yanıt alınamadı");
+                return null;
+            }
+
+            stopwatch.Stop();
+
+            // Analiz sonucunu kaydet
+            var analysis = new DocumentAnalysis
+            {
+                Id = Guid.NewGuid(),
+                DocumentId = documentId,
+                AnalysisText = analysisResult.FullText,
+                RiskScore = analysisResult.RiskScore,
+                RiskLevel = analysisResult.RiskLevel,
+                FinancialRisks = analysisResult.FinancialRisks,
+                OperationalRisks = analysisResult.OperationalRisks,
+                LegalRisks = analysisResult.LegalRisks,
+                KeyPoints = analysisResult.KeyPoints,
+                Recommendations = analysisResult.Recommendations,
+                AnalysisModel = _model,
+                AnalysisDuration = stopwatch.Elapsed.TotalSeconds,
+                TokensUsed = analysisResult.TokensUsed,
+                AnalyzedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.DocumentAnalyses.Add(analysis);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Doküman analizi tamamlandı: {DocumentId}, RiskScore: {RiskScore}, Duration: {Duration}s",
+                documentId, analysis.RiskScore, analysis.AnalysisDuration);
+
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Doküman analizi hatası: {DocumentId}", documentId);
+            return null;
+        }
+    }
+
+    private async Task<ClaudeAnalysisResult?> CallClaudeApiAsync(string base64Pdf, TenderDocument document)
+    {
+        try
+        {
+            var prompt = $@"Bu bir Türkiye Kamu İhale dokümanıdır.
+
+**Doküman Bilgisi:**
+- Tip: {document.DocumentTypeName}
+- İhale: {document.Tender?.Title}
+- İKN: {document.Tender?.IKN}
+
+**Göreviniz:**
+Bu dokümanı detaylı analiz edip aşağıdaki formatta JSON yanıt verin:
+
+{{
+  ""riskScore"": 0-100 arası genel risk skoru (sayı),
+  ""riskLevel"": ""Düşük"" | ""Orta"" | ""Yüksek"" | ""Çok Yüksek"",
+  ""financialRisks"": [""Risk 1"", ""Risk 2"", ...],
+  ""operationalRisks"": [""Risk 1"", ""Risk 2"", ...],
+  ""legalRisks"": [""Risk 1"", ""Risk 2"", ...],
+  ""keyPoints"": [""Önemli Nokta 1"", ""Önemli Nokta 2"", ...],
+  ""recommendations"": [""Öneri 1"", ""Öneri 2"", ...],
+  ""summary"": ""Genel özet (2-3 cümle)""
+}}
+
+**Analiz Kriterleri:**
+1. **Finansal Riskler**: Ödeme şartları, teminatlar, cezalar, fiyat artışı şartları
+2. **Operasyonel Riskler**: Teknik gereksinimler, süre kısıtlamaları, personel/ekipman ihtiyacı
+3. **Hukuki Riskler**: Belirsiz maddeler, tek taraflı fesih hakları, uyuşmazlık çözüm yolları
+4. **Önemli Noktalar**: Kritik şartlar, dikkat edilmesi gerekenler
+5. **Öneriler**: İhaleye girecek firmalar için öneriler
+
+Sadece JSON yanıt verin, başka açıklama eklemeyin.";
+
+            var requestBody = new
+            {
+                model = _model,
+                max_tokens = 4096,
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = new object[]
+                        {
+                            new
+                            {
+                                type = "document",
+                                source = new
+                                {
+                                    type = "base64",
+                                    media_type = "application/pdf",
+                                    data = base64Pdf
+                                }
+                            },
+                            new
+                            {
+                                type = "text",
+                                text = prompt
+                            }
+                        }
+                    }
+                }
+            };
+
+            var jsonRequest = JsonSerializer.Serialize(requestBody);
+            var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
+
+            _httpClient.DefaultRequestHeaders.Clear();
+            _httpClient.DefaultRequestHeaders.Add("x-api-key", _anthropicApiKey);
+            _httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+            _logger.LogInformation("Claude API'ye istek gönderiliyor...");
+            var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Claude API hatası: {StatusCode}, {Error}", response.StatusCode, errorContent);
+                return null;
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            var claudeResponse = JsonSerializer.Deserialize<ClaudeApiResponse>(responseJson);
+
+            if (claudeResponse?.Content == null || claudeResponse.Content.Length == 0)
+            {
+                _logger.LogWarning("Claude API'den boş yanıt geldi");
+                return null;
+            }
+
+            var analysisJson = claudeResponse.Content[0].Text;
+            _logger.LogInformation("Claude API yanıtı alındı, parsing ediliyor...");
+
+            // JSON'u parse et
+            var analysisData = JsonSerializer.Deserialize<JsonElement>(analysisJson);
+
+            return new ClaudeAnalysisResult
+            {
+                FullText = analysisJson,
+                RiskScore = analysisData.GetProperty("riskScore").GetInt32(),
+                RiskLevel = analysisData.GetProperty("riskLevel").GetString() ?? "Orta",
+                FinancialRisks = JsonSerializer.Serialize(analysisData.GetProperty("financialRisks")),
+                OperationalRisks = JsonSerializer.Serialize(analysisData.GetProperty("operationalRisks")),
+                LegalRisks = JsonSerializer.Serialize(analysisData.GetProperty("legalRisks")),
+                KeyPoints = JsonSerializer.Serialize(analysisData.GetProperty("keyPoints")),
+                Recommendations = JsonSerializer.Serialize(analysisData.GetProperty("recommendations")),
+                TokensUsed = claudeResponse.Usage?.InputTokens + claudeResponse.Usage?.OutputTokens
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Claude API çağrısı hatası");
+            return null;
+        }
+    }
+
+    public async Task<DocumentAnalysis?> GetAnalysisAsync(Guid documentId)
+    {
+        return await _context.DocumentAnalyses
+            .Include(a => a.Document)
+            .ThenInclude(d => d.Tender)
+            .FirstOrDefaultAsync(a => a.DocumentId == documentId);
+    }
+
+    public async Task<List<DocumentAnalysis>> GetAnalysesByTenderIdAsync(Guid tenderId)
+    {
+        return await _context.DocumentAnalyses
+            .Include(a => a.Document)
+            .Where(a => a.Document.TenderId == tenderId)
+            .OrderByDescending(a => a.AnalyzedAt)
+            .ToListAsync();
+    }
+
+    // Helper classes
+    private class ClaudeAnalysisResult
+    {
+        public string FullText { get; set; } = string.Empty;
+        public int RiskScore { get; set; }
+        public string RiskLevel { get; set; } = string.Empty;
+        public string? FinancialRisks { get; set; }
+        public string? OperationalRisks { get; set; }
+        public string? LegalRisks { get; set; }
+        public string? KeyPoints { get; set; }
+        public string? Recommendations { get; set; }
+        public int? TokensUsed { get; set; }
+    }
+
+    private class ClaudeApiResponse
+    {
+        public string? Id { get; set; }
+        public string? Type { get; set; }
+        public string? Role { get; set; }
+        public ContentItem[]? Content { get; set; }
+        public string? Model { get; set; }
+        public string? StopReason { get; set; }
+        public UsageInfo? Usage { get; set; }
+    }
+
+    private class ContentItem
+    {
+        public string? Type { get; set; }
+        public string? Text { get; set; }
+    }
+
+    private class UsageInfo
+    {
+        public int InputTokens { get; set; }
+        public int OutputTokens { get; set; }
+    }
+}

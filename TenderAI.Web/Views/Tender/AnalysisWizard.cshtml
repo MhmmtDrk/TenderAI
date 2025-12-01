@@ -1,0 +1,1566 @@
+@model TenderAI.Domain.Entities.Tender
+@using System.Text.Json
+@using TenderAI.Domain.Entities
+@{
+    ViewData["Title"] = "İhale Analiz Asistanı";
+    var currentStep = (int)ViewBag.CurrentStep;
+    var totalSteps = (int)ViewBag.TotalSteps;
+    var uploadedDocs = ViewBag.UploadedDocuments as List<TenderDocument>;
+
+    // Helper function to parse JSON array or plain text
+    List<string> ParseToList(string? input)
+    {
+        if (string.IsNullOrEmpty(input)) return new List<string>();
+
+        // Trim whitespace
+        input = input.Trim();
+
+        // Check if it's a JSON array
+        if (input.StartsWith("[") && input.EndsWith("]"))
+        {
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(input) ?? new List<string>();
+            }
+            catch
+            {
+                // If JSON parsing fails, treat as plain text
+                return new List<string> { input };
+            }
+        }
+
+        // Plain text - split by newlines
+        return input.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
+                   .Select(s => s.Trim())
+                   .Where(s => !string.IsNullOrEmpty(s))
+                   .ToList();
+    }
+}
+
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Ana Sayfa</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Tender" asp-action="Index">İhaleler</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Tender" asp-action="Details" asp-route-ikn="@Model.IKN">@Model.IKN</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Analiz Asistanı</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-2">
+                <i class="bi bi-robot"></i> TenderAI Analiz Asistanı
+            </h1>
+            <p class="text-muted">@Model.Title</p>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted">Adım @currentStep / @totalSteps</span>
+                <span class="text-muted">@Math.Round((double)currentStep / totalSteps * 100)%</span>
+            </div>
+            <div class="progress" style="height: 8px;">
+                <div class="progress-bar" role="progressbar"
+                     style="width: @Math.Round((double)currentStep / totalSteps * 100)%;"
+                     aria-valuenow="@currentStep" aria-valuemin="0" aria-valuemax="@totalSteps"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step Content -->
+    @if (currentStep == 1)
+    {
+        <!-- Adım 1: İhale Görüntüleme (Kurum, İhale, Konu, BFTC Özeti) -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Adım 1: İhale Özeti
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- Kurum Bilgisi -->
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3"><i class="bi bi-building"></i> İhaleyi Açan Kurum</h6>
+                                <h5>@Model.AuthorityName</h5>
+                                <p class="mb-1"><strong>İl:</strong> @Model.Province</p>
+                                <p class="mb-0"><strong>İlçe:</strong> @Model.District</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- İhale Bilgisi -->
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3"><i class="bi bi-file-text"></i> İhale Bilgisi</h6>
+                                <p class="mb-1"><strong>IKN:</strong> @Model.IKN</p>
+                                <p class="mb-1"><strong>Türü:</strong> @Model.TenderType</p>
+                                <p class="mb-1"><strong>Usulü:</strong> @Model.ProcurementMethod</p>
+                                <p class="mb-0"><strong>Teklif Son Tarihi:</strong> @Model.BidDeadline.ToString("dd.MM.yyyy HH:mm")</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Konu -->
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3"><i class="bi bi-card-text"></i> İhale Konusu</h6>
+                                <p class="mb-0">@Model.Title</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Doküman Yükleme Formu -->
+                    <div class="col-12">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-cloud-upload"></i> Dökümanları Yükleyin
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                @if (uploadedDocs != null && uploadedDocs.Any())
+                                {
+                                    <!-- Dosyalar Zaten Yüklenmiş -->
+                                    <div class="alert alert-success">
+                                        <i class="bi bi-check-circle"></i> <strong>@uploadedDocs.Count dosya yüklendi</strong>
+                                    </div>
+
+                                    <div class="row g-3 mb-3">
+                                        @foreach (var doc in uploadedDocs)
+                                        {
+                                            var docName = doc.DocumentType switch
+                                            {
+                                                "2" => "Teknik Şartname",
+                                                "3" => "İdari Şartname",
+                                                "4" => "Sözleşme Tasarısı",
+                                                "5" => "BFTC",
+                                                _ => "Ek Doküman"
+                                            };
+                                            var analysis = ViewBag.Analyses as Dictionary<string, DocumentAnalysis>;
+                                            var hasAnalysis = analysis?.Values.Any(a => a.DocumentId == doc.Id) ?? false;
+
+                                            <div class="col-md-6">
+                                                <div class="card border-success">
+                                                    <div class="card-body">
+                                                        <h6 class="text-success">
+                                                            <i class="bi bi-check-circle"></i> @docName
+                                                        </h6>
+                                                        <small class="text-muted d-block">@doc.FileName</small>
+                                                        @if (hasAnalysis)
+                                                        {
+                                                            <span class="badge bg-success mt-2">✓ Analiz Tamamlandı</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-warning mt-2">⏳ Analiz Devam Ediyor...</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> Dosyalar yüklendi.
+                                        @if (ViewBag.Analyses != null && ((Dictionary<string, DocumentAnalysis>)ViewBag.Analyses).Count >= uploadedDocs.Count)
+                                        {
+                                            <text><strong>Tüm analizler tamamlandı!</strong> Step 2&#39;ye geçebilirsiniz.</text>
+                                        }
+                                        else
+                                        {
+                                            <text><strong>Analizler arka planda devam ediyor.</strong> Step 2&#39;ye geçebilir ya da burada bekleyebilirsiniz.</text>
+                                        }
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <a href="?step=2" class="btn btn-primary flex-grow-1">
+                                            <i class="bi bi-arrow-right"></i> Step 2&#39;ye Geç
+                                        </a>
+                                        <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
+                                            <i class="bi bi-arrow-clockwise"></i> Durumu Yenile
+                                        </button>
+                                    </div>
+
+                                    @if (ViewBag.Analyses == null || ((Dictionary<string, DocumentAnalysis>)ViewBag.Analyses).Count < uploadedDocs.Count)
+                                    {
+                                        <div class="mt-3">
+                                            <button type="button" class="btn btn-warning w-100" id="retryAnalysisBtn">
+                                                <i class="bi bi-arrow-repeat"></i> Analizleri Yeniden Başlat
+                                            </button>
+                                            <small class="text-muted d-block mt-2">
+                                                Analizler takıldıysa veya tamamlanmadıysa bu butona tıklayın
+                                            </small>
+                                        </div>
+                                    }
+
+                                    <!-- Sıfırla ve Yeniden Başlat -->
+                                    <div class="mt-3">
+                                        <button type="button" class="btn btn-outline-danger w-100" id="resetAnalysesBtn">
+                                            <i class="bi bi-trash"></i> Tüm Dökümanları Sil ve Yeniden Başlat
+                                        </button>
+                                        <small class="text-muted d-block mt-2">
+                                            Tüm dökümanları ve analizleri siler. Yeniden dosya yükleyebilirsiniz.
+                                        </small>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <!-- Dosya Yükleme Kartları - Her dosya için ayrı drag & drop -->
+                                    <div class="row g-3 mb-3">
+                                    <!-- Teknik Şartname -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 file-card drop-zone" data-type="teknik">
+                                            <div class="card-body text-center p-3 position-relative">
+                                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-file-btn" data-type="teknik" style="display:none;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                                <i class="bi bi-gear text-primary" style="font-size: 2rem;"></i>
+                                                <h6 class="mt-2 mb-2">Teknik Şartname</h6>
+                                                <div class="drop-area border border-2 border-dashed rounded p-3 mb-2" style="cursor: pointer;">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                    <p class="small mb-0">Sürükle & Bırak</p>
+                                                </div>
+                                                <small class="text-muted d-block mb-2" id="teknik-status">Dosya seçilmedi</small>
+                                                <button type="button" class="btn btn-sm btn-outline-primary w-100 select-file-btn" data-type="teknik">
+                                                    <i class="bi bi-folder2-open"></i> Dosya Seç
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- İdari Şartname -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 file-card drop-zone" data-type="idari">
+                                            <div class="card-body text-center p-3 position-relative">
+                                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-file-btn" data-type="idari" style="display:none;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                                <i class="bi bi-file-earmark-ruled text-success" style="font-size: 2rem;"></i>
+                                                <h6 class="mt-2 mb-2">İdari Şartname</h6>
+                                                <div class="drop-area border border-2 border-dashed rounded p-3 mb-2" style="cursor: pointer;">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                    <p class="small mb-0">Sürükle & Bırak</p>
+                                                </div>
+                                                <small class="text-muted d-block mb-2" id="idari-status">Dosya seçilmedi</small>
+                                                <button type="button" class="btn btn-sm btn-outline-success w-100 select-file-btn" data-type="idari">
+                                                    <i class="bi bi-folder2-open"></i> Dosya Seç
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Sözleşme Tasarısı -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 file-card drop-zone" data-type="sozlesme">
+                                            <div class="card-body text-center p-3 position-relative">
+                                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-file-btn" data-type="sozlesme" style="display:none;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                                <i class="bi bi-file-earmark-check text-info" style="font-size: 2rem;"></i>
+                                                <h6 class="mt-2 mb-2">Sözleşme Tasarısı</h6>
+                                                <div class="drop-area border border-2 border-dashed rounded p-3 mb-2" style="cursor: pointer;">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                    <p class="small mb-0">Sürükle & Bırak</p>
+                                                </div>
+                                                <small class="text-muted d-block mb-2" id="sozlesme-status">Dosya seçilmedi</small>
+                                                <button type="button" class="btn btn-sm btn-outline-info w-100 select-file-btn" data-type="sozlesme">
+                                                    <i class="bi bi-folder2-open"></i> Dosya Seç
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- BFTC -->
+                                    <div class="col-md-6">
+                                        <div class="card h-100 file-card drop-zone" data-type="bftc">
+                                            <div class="card-body text-center p-3 position-relative">
+                                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-file-btn" data-type="bftc" style="display:none;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                                <i class="bi bi-table text-warning" style="font-size: 2rem;"></i>
+                                                <h6 class="mt-2 mb-2">BFTC (Birim Fiyat Teklif Cetveli)</h6>
+                                                <div class="drop-area border border-2 border-dashed rounded p-3 mb-2" style="cursor: pointer;">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                    <p class="small mb-0">Sürükle & Bırak</p>
+                                                </div>
+                                                <small class="text-muted d-block mb-2" id="bftc-status">Dosya seçilmedi</small>
+                                                <button type="button" class="btn btn-sm btn-outline-warning w-100 select-file-btn" data-type="bftc">
+                                                    <i class="bi bi-folder2-open"></i> Dosya Seç
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Ek Dökümanlar -->
+                                    <div class="col-md-6">
+                                        <div class="card h-100 file-card drop-zone" data-type="other">
+                                            <div class="card-body text-center p-3 position-relative">
+                                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-file-btn" data-type="other" style="display:none;">
+                                                    <i class="bi bi-x"></i>
+                                                </button>
+                                                <i class="bi bi-files text-secondary" style="font-size: 2rem;"></i>
+                                                <h6 class="mt-2 mb-2">Ek Dökümanlar</h6>
+                                                <div class="drop-area border border-2 border-dashed rounded p-3 mb-2" style="cursor: pointer;">
+                                                    <i class="bi bi-cloud-arrow-up"></i>
+                                                    <p class="small mb-0">Çoklu - Sürükle & Bırak</p>
+                                                </div>
+                                                <small class="text-muted d-block mb-2" id="other-status">Dosya seçilmedi</small>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary w-100 select-file-btn" data-type="other">
+                                                    <i class="bi bi-folder2-open"></i> Dosya Seç (Çoklu)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> <strong>İpucu:</strong> Her dosyayı doğru alana sürükleyin. BFTC için BFTC alanına, İdari Şartname için İdari Şartname alanına sürükleyin.
+                                    </div>
+
+                                    <!-- Yükleme Butonu -->
+                                    <div id="uploadButtons" style="display: none;">
+                                        <button type="button" class="btn btn-success btn-lg w-100" id="uploadFilesBtn">
+                                            <i class="bi bi-cloud-upload"></i> Yükle ve Analiz Et
+                                        </button>
+                                    </div>
+
+                                    <!-- Progress Göstergesi -->
+                                    <div id="uploadProgress" class="mt-3" style="display:none;"></div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-4">
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> İptal
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 2)
+    {
+        <!-- Adım 2: İdari Şartname Analizi -->
+        var analyses = ViewBag.Analyses as Dictionary<string, DocumentAnalysis>;
+        var idariAnalysis = analyses?.ContainsKey("idari") == true ? analyses["idari"] : null;
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-ruled"></i> Adım 2: İdari Şartname Detaylı Analizi
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (idariAnalysis == null)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> İdari Şartname henüz yüklenmedi veya analiz edilmedi. Lütfen önce dökümanı yükleyip analiz edin.
+                    </div>
+                }
+                else
+                {
+                    <partial name="_DocumentAnalysisDetail" model="idariAnalysis" />
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=1" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <a href="?step=3" class="btn btn-primary btn-lg">
+                        Devam Et <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 3)
+    {
+        <!-- Adım 3: Sözleşme Tasarısı Detaylı Analizi -->
+        var analyses = ViewBag.Analyses as Dictionary<string, DocumentAnalysis>;
+        var sozlesmeAnalysis = analyses?.ContainsKey("sozlesme") == true ? analyses["sozlesme"] : null;
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-text"></i> Adım 3: Sözleşme Tasarısı Detaylı Analizi
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (sozlesmeAnalysis == null)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Sözleşme Tasarısı henüz yüklenmedi veya analiz edilmedi.
+                    </div>
+                }
+                else
+                {
+                    <partial name="_DocumentAnalysisDetail" model="sozlesmeAnalysis" />
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=2" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <a href="?step=4" class="btn btn-primary btn-lg">
+                        Devam Et <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 4)
+    {
+        <!-- Adım 4: Katılım Teyidi -->
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="bi bi-question-circle"></i> Adım 4: Katılım Teyidi
+                </h5>
+            </div>
+            <div class="card-body text-center py-5">
+                <h3 class="mb-4">Bu ihaleye katılmak istiyor musunuz?</h3>
+                <p class="text-muted mb-4">
+                    İdari şartname ve sözleşme tasarısını inceledikten sonra ihaleye katılım kararınızı verin.
+                </p>
+
+                <div class="d-flex justify-content-center gap-3">
+                    <a asp-action="Details" asp-route-ikn="@Model.IKN" class="btn btn-danger btn-lg px-5">
+                        <i class="bi bi-x-circle"></i> Hayır, Katılmayacağım
+                    </a>
+                    <a href="?step=5" class="btn btn-success btn-lg px-5">
+                        <i class="bi bi-check-circle"></i> Evet, Devam Et
+                    </a>
+                </div>
+
+                <div class="mt-4">
+                    <a href="?step=3" class="btn btn-link">
+                        <i class="bi bi-arrow-left"></i> Geri Dön
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 5)
+    {
+        <!-- Adım 5: Teknik Şartname Detaylı Analizi -->
+        var analyses = ViewBag.Analyses as Dictionary<string, DocumentAnalysis>;
+        var teknikAnalysis = analyses?.ContainsKey("teknik") == true ? analyses["teknik"] : null;
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-gear"></i> Adım 5: Teknik Şartname Detaylı Analizi
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (teknikAnalysis == null)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Teknik Şartname henüz yüklenmedi veya analiz edilmedi.
+                    </div>
+                }
+                else
+                {
+                    <partial name="_DocumentAnalysisDetail" model="teknikAnalysis" />
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=4" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <a href="?step=6" class="btn btn-primary btn-lg">
+                        Devam Et <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 6)
+    {
+        <!-- Adım 6: Risk Değerlendirme Tablosu -->
+        var analyses = ViewBag.Analyses as Dictionary<string, DocumentAnalysis>;
+        var idariAnalysis = analyses?.ContainsKey("idari") == true ? analyses["idari"] : null;
+        var sozlesmeAnalysis = analyses?.ContainsKey("sozlesme") == true ? analyses["sozlesme"] : null;
+        var teknikAnalysis = analyses?.ContainsKey("teknik") == true ? analyses["teknik"] : null;
+
+        // Ortalama risk skorunu hesapla
+        var totalRisk = 0.0;
+        var count = 0;
+        if (analyses != null)
+        {
+            foreach (var analysis in analyses.Values)
+            {
+                totalRisk += analysis.RiskScore;
+                count++;
+            }
+        }
+        var avgRisk = count > 0 ? totalRisk / count : 0;
+
+        // Risk seviyesi belirle
+        string riskLevel = avgRisk >= 7 ? "Yüksek" : avgRisk >= 4 ? "Orta" : "Düşük";
+        string riskBadgeClass = avgRisk >= 7 ? "bg-danger" : avgRisk >= 4 ? "bg-warning" : "bg-success";
+
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle"></i> Adım 6: Risk Değerlendirme
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-shield-exclamation"></i> AI tüm dökümanları analiz ederek riskleri değerlendirdi.
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Risk Tipi</th>
+                                <th>Detaylar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (idariAnalysis != null || sozlesmeAnalysis != null)
+                            {
+                                <tr>
+                                    <td><i class="bi bi-currency-dollar text-warning"></i> <strong>Finansal Riskler</strong></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(idariAnalysis?.FinancialRisks))
+                                        {
+                                            var financialRisks = ParseToList(idariAnalysis.FinancialRisks);
+                                            <div class="mb-2">
+                                                <strong>İdari Şartname:</strong>
+                                                <ul class="mt-1 mb-0">
+                                                    @foreach (var risk in financialRisks)
+                                                    {
+                                                        <li>@risk</li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(sozlesmeAnalysis?.FinancialRisks))
+                                        {
+                                            var financialRisks = ParseToList(sozlesmeAnalysis.FinancialRisks);
+                                            <div>
+                                                <strong>Sözleşme Tasarısı:</strong>
+                                                <ul class="mt-1 mb-0">
+                                                    @foreach (var risk in financialRisks)
+                                                    {
+                                                        <li>@risk</li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                        @if (string.IsNullOrEmpty(idariAnalysis?.FinancialRisks) && string.IsNullOrEmpty(sozlesmeAnalysis?.FinancialRisks))
+                                        {
+                                            <span class="text-muted">Analiz edilmedi</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (idariAnalysis != null)
+                            {
+                                <tr>
+                                    <td><i class="bi bi-gavel text-danger"></i> <strong>Yasal Riskler</strong></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(idariAnalysis.LegalRisks))
+                                        {
+                                            var legalRisks = ParseToList(idariAnalysis.LegalRisks);
+                                            <ul class="mb-0">
+                                                @foreach (var risk in legalRisks)
+                                                {
+                                                    <li>@risk</li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Analiz edilmedi</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (teknikAnalysis != null)
+                            {
+                                <tr>
+                                    <td><i class="bi bi-gear text-info"></i> <strong>Operasyonel Riskler</strong></td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(teknikAnalysis.OperationalRisks))
+                                        {
+                                            var operationalRisks = ParseToList(teknikAnalysis.OperationalRisks);
+                                            <ul class="mb-0">
+                                                @foreach (var risk in operationalRisks)
+                                                {
+                                                    <li>@risk</li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Analiz edilmedi</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <strong>Genel Risk Skoru:</strong> <span class="badge @riskBadgeClass fs-6">@avgRisk.ToString("F1") / 10 (@riskLevel Risk)</span>
+                    @if (count > 0)
+                    {
+                        <br/>
+                        <small class="text-muted">@count doküman analiz edildi</small>
+                    }
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=5" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <a href="?step=7" class="btn btn-primary btn-lg">
+                        Devam Et <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 7)
+    {
+        <!-- Adım 7: BFTC Fiyat Girişi -->
+        var bftcAnalysis = ViewBag.BftcAnalysis as DocumentAnalysis;
+        List<JsonElement>? bftcItems = null;
+
+        if (bftcAnalysis is not null && !string.IsNullOrEmpty(bftcAnalysis.BftcTableData))
+        {
+            try
+            {
+                bftcItems = JsonSerializer.Deserialize<List<JsonElement>>(bftcAnalysis.BftcTableData);
+            }
+            catch { }
+        }
+
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-calculator"></i> Adım 7: BFTC Fiyat Girişi
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (bftcItems == null || bftcItems.Count == 0)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        BFTC dokümanı henüz yüklenmedi veya tablo verisi extract edilemedi.
+                        <br/><small>Lütfen önce BFTC dokümanını yükleyip analiz edin.</small>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i>
+                        <strong>@bftcItems.Count adet</strong> BFTC kalemi bulundu. Birim fiyatlarınızı girin.
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="bftcTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 40%;">Mal/Hizmet Açıklaması</th>
+                                    <th style="width: 10%;">Miktar</th>
+                                    <th style="width: 10%;">Birim</th>
+                                    <th style="width: 15%;">Birim Fiyat (₺)</th>
+                                    <th style="width: 20%;">Toplam (₺)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < bftcItems.Count; i++)
+                                {
+                                    var item = bftcItems[i];
+                                    var itemNum = item.GetProperty("itemNumber").GetInt32();
+                                    var desc = item.GetProperty("description").GetString();
+                                    var qty = item.GetProperty("quantity").GetDecimal();
+                                    var unit = item.GetProperty("unit").GetString();
+
+                                    <tr data-index="@i">
+                                        <td>@itemNum</td>
+                                        <td class="small">@desc</td>
+                                        <td class="text-end">@qty.ToString("N2")</td>
+                                        <td>@unit</td>
+                                        <td>
+                                            <input type="number"
+                                                   class="form-control form-control-sm unit-price-input"
+                                                   data-index="@i"
+                                                   data-quantity="@qty"
+                                                   step="0.01"
+                                                   min="0"
+                                                   placeholder="0.00" />
+                                        </td>
+                                        <td class="text-end fw-bold item-total" data-index="@i">₺0.00</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end"><strong>Genel Toplam:</strong></td>
+                                    <td class="text-end fw-bold fs-5 text-success" id="grandTotal">₺0.00</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=6" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <button type="button" class="btn btn-primary btn-lg" id="continueToStep8">
+                        Devam Et <i class="bi bi-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 8)
+    {
+        // BFTC toplam tutarını query string'den oku
+        decimal userTotal = 0m;
+        if (Context.Request.Query.ContainsKey("total"))
+        {
+            decimal.TryParse(Context.Request.Query["total"], System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out userTotal);
+        }
+
+        <!-- Adım 8: AI Fiyat Önerisi -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-robot"></i> Adım 8: Gemini AI Fiyat Önerisi
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (userTotal == 0)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        BFTC'ye fiyat girişi yapılmadı. Lütfen Adım 7'ye dönün ve birim fiyatları girin.
+                    </div>
+                }
+                else
+                {
+                    <!-- AI Öneri Butonu -->
+                    <div class="alert alert-info mb-4 text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-robot fs-1 text-success"></i>
+                            <h5 class="mt-2">Gemini AI ile Akıllı Fiyat Önerisi</h5>
+                            <p class="mb-0">AI, tüm risk analizlerinizi, BFTC kalemleri ve piyasa verilerini değerlendirerek size özel bir fiyat önerisi sunacak.</p>
+                        </div>
+                        <button type="button" class="btn btn-success btn-lg" id="getAiRecommendation" data-tender-id="@Model.Id" data-user-total="@userTotal">
+                            <i class="bi bi-stars"></i> AI Fiyat Önerisi Al
+                        </button>
+                    </div>
+
+                    <!-- Kullanıcının BFTC Toplamı -->
+                    <div class="card mb-3 border-primary">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted">Sizin BFTC Toplam Fiyatınız</h6>
+                            <h2 class="text-primary mb-0">@userTotal.ToString("C0", new System.Globalization.CultureInfo("tr-TR"))</h2>
+                            <small class="text-muted">Bu tutarı Adım 7'de hesapladınız</small>
+                        </div>
+                    </div>
+
+                    <!-- AI Önerisi Placeholder (JavaScript ile doldurulacak) -->
+                    <div id="aiRecommendation" style="display:none;">
+                        <!-- AI önerisi buraya JavaScript ile eklenecek -->
+                    </div>
+
+                    <div class="alert alert-light border">
+                        <i class="bi bi-info-circle"></i> <strong>AI nasıl çalışır?</strong>
+                        <p class="mb-0 mt-2 small">Gemini AI, İdari Şartname, Sözleşme Tasarısı ve Teknik Şartname'deki tüm riskleri, BFTC kalemleri ve geçmiş ihale verilerini analiz ederek size en optimal fiyat teklifini sunar.</p>
+                    </div>
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=7" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <a href="?step=9&total=@userTotal" class="btn btn-primary btn-lg">
+                        Sonuçları Gör <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else if (currentStep == 9)
+    {
+        // BFTC toplam tutarını query string'den oku
+        decimal userTotal = 0m;
+        if (Context.Request.Query.ContainsKey("total"))
+        {
+            decimal.TryParse(Context.Request.Query["total"], System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out userTotal);
+        }
+
+        <!-- Adım 9: Nihai Sonuç -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-trophy"></i> Adım 9: Nihai Teklif ve Analiz Özeti
+                </h5>
+            </div>
+            <div class="card-body">
+                @if (userTotal == 0)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Analiz tamamlanamadı. BFTC fiyat bilgisi eksik. Lütfen Adım 7'ye dönün.
+                    </div>
+                }
+                else
+                {
+                    <!-- Kullanıcının BFTC Toplamı -->
+                    <div class="card mb-4 border-primary">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-2">Sizin Hesapladığınız BFTC Toplam Fiyatı</h6>
+                            <h2 class="text-primary mb-0">@userTotal.ToString("C0", new System.Globalization.CultureInfo("tr-TR"))</h2>
+                            <small class="text-muted">Bu tutarı Adım 7'de hesapladınız</small>
+                        </div>
+                    </div>
+
+                    <!-- AI Önerisi Placeholder (Step 8'den gelen öneri varsa göster) -->
+                    <div id="step9AiRecommendation">
+                        <!-- AI önerisi varsa JavaScript ile buraya eklenecek -->
+                    </div>
+
+                    <!-- Varsayılan Mesaj (AI önerisi alınmadıysa) -->
+                    <div id="step9DefaultRecommendation">
+                        <div class="alert alert-info">
+                            <h5><i class="bi bi-lightbulb"></i> AI Fiyat Önerisi Almadınız</h5>
+                            <p class="mb-2">Step 8'e geri dönüp <strong>"AI Fiyat Önerisi Al"</strong> butonuna tıklayarak Gemini AI'dan akıllı fiyat önerisi alabilirsiniz.</p>
+                            <p class="mb-0"><small>AI tüm riskleri, BFTC kalemleri ve piyasa verilerini analiz ederek size en optimal teklif fiyatını önerecek.</small></p>
+                        </div>
+                    </div>
+
+                    <!-- İhale Detayları -->
+                    <div class="card border-info">
+                        <div class="card-header bg-light">
+                            <strong><i class="bi bi-info-circle"></i> İhale Detayları</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>İhale Adı:</strong> @Model.Title</p>
+                                    <p><strong>İhale No:</strong> @Model.IKN</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>İhale Bitiş:</strong> @Model.BidDeadline.ToString("dd.MM.yyyy HH:mm")</p>
+                                    <p><strong>Kurum:</strong> @Model.AuthorityName</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Actions -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="?step=8" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Geri
+                    </a>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" disabled>
+                            <i class="bi bi-file-pdf"></i> PDF İndir (Yakında)
+                        </button>
+                        <a asp-action="Details" asp-route-ikn="@Model.IKN" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle"></i> Analizi Tamamla
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <style>
+        .file-card {
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .file-card.selected {
+            border-color: #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .drop-area.drag-over {
+            background-color: #e7f3ff !important;
+            border-color: #0d6efd !important;
+            border-width: 3px !important;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Dosya yönetimi için global değişkenler
+            const selectedFiles = {
+                teknik: null,
+                idari: null,
+                sozlesme: null,
+                bftc: null,
+                other: []
+            };
+
+            const tenderId = '@Model.Id';
+
+            // Her dosya kartı için ayrı drag & drop
+            document.querySelectorAll('.drop-zone').forEach(zone => {
+                const type = zone.dataset.type;
+                const dropArea = zone.querySelector('.drop-area');
+
+                // Drag over
+                dropArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.add('drag-over');
+                });
+
+                // Drag leave
+                dropArea.addEventListener('dragleave', (e) => {
+                    e.stopPropagation();
+                    dropArea.classList.remove('drag-over');
+                });
+
+                // Drop
+                dropArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.remove('drag-over');
+
+                    const files = Array.from(e.dataTransfer.files);
+                    handleFileDrop(type, files);
+                });
+
+                // Drop area'ya tıklayınca dosya seçici aç
+                dropArea.addEventListener('click', () => {
+                    const btn = zone.querySelector('.select-file-btn');
+                    if (btn) btn.click();
+                });
+            });
+
+            // Belirli bir type için dosya drop
+            function handleFileDrop(type, files) {
+                if (type === 'other') {
+                    // Ek dökümanlar - çoklu
+                    selectedFiles.other = [...selectedFiles.other, ...files];
+                    updateFileStatus('other', `${selectedFiles.other.length} dosya`);
+                } else {
+                    // Tekil dosyalar - sadece ilkini al
+                    if (files.length > 0) {
+                        selectedFiles[type] = files[0];
+                        updateFileStatus(type, files[0].name);
+                    }
+                }
+                updateUploadButton();
+            }
+
+            // Manuel dosya seçimi
+            document.querySelectorAll('.select-file-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const type = btn.dataset.type;
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.multiple = (type === 'other');
+
+                    input.addEventListener('change', (e) => {
+                        const files = Array.from(e.target.files);
+
+                        if (type === 'other') {
+                            selectedFiles.other = [...selectedFiles.other, ...files];
+                            updateFileStatus('other', `${selectedFiles.other.length} dosya`);
+                        } else {
+                            selectedFiles[type] = files[0];
+                            updateFileStatus(type, files[0].name);
+                        }
+
+                        updateUploadButton();
+                    });
+
+                    input.click();
+                });
+            });
+
+            // Dosya durumunu güncelle
+            function updateFileStatus(type, fileName) {
+                const statusEl = document.getElementById(`${type}-status`);
+                const removeBtn = document.querySelector(`.remove-file-btn[data-type="${type}"]`);
+
+                if (statusEl) {
+                    statusEl.textContent = fileName;
+                    statusEl.classList.remove('text-muted');
+                    statusEl.classList.add('text-success');
+
+                    const card = document.querySelector(`.file-card[data-type="${type}"]`);
+                    if (card) card.classList.add('selected');
+
+                    // X butonunu göster
+                    if (removeBtn) removeBtn.style.display = 'block';
+                }
+            }
+
+            // Dosyayı kaldır
+            document.querySelectorAll('.remove-file-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const type = btn.dataset.type;
+
+                    // Dosyayı sil
+                    if (type === 'other') {
+                        selectedFiles.other = [];
+                    } else {
+                        selectedFiles[type] = null;
+                    }
+
+                    // UI'ı güncelle
+                    const statusEl = document.getElementById(`${type}-status`);
+                    const card = document.querySelector(`.file-card[data-type="${type}"]`);
+
+                    if (statusEl) {
+                        statusEl.textContent = 'Dosya seçilmedi';
+                        statusEl.classList.remove('text-success');
+                        statusEl.classList.add('text-muted');
+                    }
+
+                    if (card) card.classList.remove('selected');
+                    btn.style.display = 'none';
+
+                    updateUploadButton();
+                });
+            });
+
+            // Yükleme butonunu göster/gizle
+            function updateUploadButton() {
+                const hasFiles = selectedFiles.teknik || selectedFiles.idari || selectedFiles.sozlesme ||
+                                 selectedFiles.bftc || selectedFiles.other.length > 0;
+
+                const uploadButtons = document.getElementById('uploadButtons');
+                if (uploadButtons) {
+                    uploadButtons.style.display = hasFiles ? 'block' : 'none';
+                }
+            }
+
+            // Dosyaları yükle
+            const uploadFilesBtn = document.getElementById('uploadFilesBtn');
+            if (uploadFilesBtn) {
+                uploadFilesBtn.addEventListener('click', async () => {
+                    const formData = new FormData();
+                    formData.append('tenderId', tenderId);
+
+                    if (selectedFiles.teknik) formData.append('teknik', selectedFiles.teknik);
+                    if (selectedFiles.idari) formData.append('idari', selectedFiles.idari);
+                    if (selectedFiles.sozlesme) formData.append('sozlesme', selectedFiles.sozlesme);
+                    if (selectedFiles.bftc) formData.append('bftc', selectedFiles.bftc);
+
+                    selectedFiles.other.forEach(file => {
+                        formData.append('other', file);
+                    });
+
+                    const progressDiv = document.getElementById('uploadProgress');
+
+                    uploadFilesBtn.disabled = true;
+                    uploadFilesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Yükleniyor...';
+
+                    progressDiv.style.display = 'block';
+                    progressDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-hourglass-split"></i> Dosyalar yükleniyor...
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                        </div>
+                    `;
+
+                    try {
+                        const response = await fetch('@Url.Action("UploadMultipleDocuments", "Tender")', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            // Yükleme başarılı - şimdi analizleri başlat
+                            progressDiv.innerHTML = `
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle"></i> ${result.message}
+                                </div>
+                                <div class="alert alert-info mt-2">
+                                    <i class="bi bi-robot"></i> AI analizleri başlatılıyor...
+                                </div>
+                            `;
+
+                            // Analizleri başlat
+                            try {
+                                const analysisResponse = await fetch('@Url.Action("StartDocumentAnalyses", "Tender")?tenderId=' + tenderId, {
+                                    method: 'POST'
+                                });
+
+                                const analysisResult = await analysisResponse.json();
+
+                                if (analysisResult.success) {
+                                    // Analiz başladı - kullanıcıyı yönlendir
+                                    progressDiv.innerHTML = `
+                                        <div class="alert alert-success">
+                                            <i class="bi bi-check-circle"></i> Dosyalar yüklendi ve analizler başlatıldı!
+                                        </div>
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle"></i> <strong>Analizler arka planda çalışıyor.</strong><br>
+                                            Step 2'ye geçebilirsiniz. Analizler tamamlanmamışsa sonuçları bekleyin.
+                                        </div>
+                                        <a href="?step=2" class="btn btn-primary btn-lg w-100 mt-2">
+                                            <i class="bi bi-arrow-right"></i> Step 2'ye Geç
+                                        </a>
+                                    `;
+                                } else {
+                                    progressDiv.innerHTML = `
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle"></i> Dosyalar yüklendi ama analizler başlatılamadı.
+                                            <a href="?step=2" class="alert-link">Step 2'ye geçin</a> ve detay sayfasından manuel analiz edin.
+                                        </div>
+                                    `;
+                                }
+                            } catch (error) {
+                                progressDiv.innerHTML = `
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle"></i> Dosyalar yüklendi.
+                                        <a href="?step=2" class="alert-link">Step 2'ye geçin</a>
+                                    </div>
+                                `;
+                            }
+
+                            document.getElementById('uploadButtons').style.display = 'none';
+                        } else {
+                            progressDiv.innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-exclamation-triangle"></i> Hata: ${result.message}
+                                </div>
+                            `;
+                            uploadFilesBtn.disabled = false;
+                            uploadFilesBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Dosyaları Yükle';
+                        }
+                    } catch (error) {
+                        progressDiv.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle"></i> Bağlantı hatası: ${error.message}
+                            </div>
+                        `;
+                        uploadFilesBtn.disabled = false;
+                        uploadFilesBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Dosyaları Yükle';
+                    }
+                });
+            }
+
+            // Analizleri yeniden başlat butonu
+            const retryAnalysisBtn = document.getElementById('retryAnalysisBtn');
+            if (retryAnalysisBtn) {
+                retryAnalysisBtn.addEventListener('click', async () => {
+                    retryAnalysisBtn.disabled = true;
+                    retryAnalysisBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Başlatılıyor...';
+
+                    try {
+                        const response = await fetch('@Url.Action("StartDocumentAnalyses", "Tender")?tenderId=' + tenderId, {
+                            method: 'POST'
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            await Swal.fire({
+                                title: 'Başarılı!',
+                                html: `<strong>${result.totalDocuments}</strong> dosya için analiz başlatıldı!<br><br>Sayfayı 30 saniye sonra yenileyin ve sonuçları kontrol edin.`,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+
+                            // 2 saniye sonra sayfa yenile
+                            setTimeout(() => {
+                                location.reload();
+                            }, 2000);
+                        } else {
+                            Swal.fire({
+                                title: 'Hata!',
+                                text: result.message,
+                                icon: 'error',
+                                confirmButtonText: 'Tamam'
+                            });
+                            retryAnalysisBtn.disabled = false;
+                            retryAnalysisBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Analizleri Yeniden Başlat';
+                        }
+                    } catch (error) {
+                        Swal.fire({
+                            title: 'Bağlantı Hatası!',
+                            text: error.message,
+                            icon: 'error',
+                            confirmButtonText: 'Tamam'
+                        });
+                        retryAnalysisBtn.disabled = false;
+                        retryAnalysisBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Analizleri Yeniden Başlat';
+                    }
+                });
+            }
+
+            // Analiz Et butonu artık yok - yükleme ile birlikte analiz başlıyor
+
+            // BFTC fiyat hesaplama
+            const priceInputs = document.querySelectorAll('.unit-price-input');
+
+            // localStorage'dan fiyatları yükle
+            priceInputs.forEach(input => {
+                const index = input.dataset.index;
+                const savedPrice = localStorage.getItem('bftc_price_' + index);
+                if (savedPrice) {
+                    input.value = savedPrice;
+                    calculateRow(input);
+                }
+
+                input.addEventListener('input', function() {
+                    calculateRow(this);
+                    calculateGrandTotal();
+                    savePrices();
+                });
+            });
+
+            // İlk yüklemede toplam hesapla
+            calculateGrandTotal();
+
+            // Step 8'e geç butonu
+            const continueBtn = document.getElementById('continueToStep8');
+            if (continueBtn) {
+                continueBtn.addEventListener('click', function() {
+                    const grandTotal = localStorage.getItem('bftc_grand_total') || '0';
+                    window.location.href = '?step=8&total=' + grandTotal;
+                });
+            }
+
+            function calculateRow(input) {
+                const index = input.dataset.index;
+                const quantity = parseFloat(input.dataset.quantity);
+                const unitPrice = parseFloat(input.value) || 0;
+                const total = quantity * unitPrice;
+
+                const totalCell = document.querySelector(`.item-total[data-index="${index}"]`);
+                if (totalCell) {
+                    totalCell.textContent = '₺' + total.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+            }
+
+            function calculateGrandTotal() {
+                let grandTotal = 0;
+                priceInputs.forEach(input => {
+                    const quantity = parseFloat(input.dataset.quantity);
+                    const unitPrice = parseFloat(input.value) || 0;
+                    grandTotal += quantity * unitPrice;
+                });
+
+                const grandTotalCell = document.getElementById('grandTotal');
+                if (grandTotalCell) {
+                    grandTotalCell.textContent = '₺' + grandTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+
+                // Grand total'ı localStorage'a kaydet
+                localStorage.setItem('bftc_grand_total', grandTotal);
+            }
+
+            function savePrices() {
+                priceInputs.forEach(input => {
+                    const index = input.dataset.index;
+                    localStorage.setItem('bftc_price_' + index, input.value);
+                });
+            }
+
+            // AI Fiyat Önerisi Al
+            const aiBtn = document.getElementById('getAiRecommendation');
+            if (aiBtn) {
+                aiBtn.addEventListener('click', async function() {
+                    const tenderId = this.dataset.tenderId;
+                    const userTotal = parseFloat(this.dataset.userTotal);
+
+                    // Butonu disable et
+                    aiBtn.disabled = true;
+                    aiBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> AI düşünüyor...';
+
+                    try {
+                        const response = await fetch('@Url.Action("GetPriceRecommendation", "Tender")', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                tenderId: tenderId,
+                                userBidTotal: userTotal
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            const rec = data.recommendation;
+
+                            // AI önerisini göster
+                            const aiDiv = document.getElementById('aiRecommendation');
+                            if (aiDiv) {
+                                aiDiv.style.display = 'block';
+                                aiDiv.innerHTML = `
+                                    <div class="alert alert-success mb-3">
+                                        <i class="bi bi-check-circle"></i> <strong>Gemini AI Önerisi</strong> başarıyla alındı!
+                                    </div>
+
+                                    <div class="row g-3 mb-4">
+                                        <div class="col-md-4">
+                                            <div class="card bg-success text-white text-center">
+                                                <div class="card-body">
+                                                    <h6 class="card-title mb-2">Önerilen Teklif Fiyatı</h6>
+                                                    <h3 class="mb-0">₺${rec.suggestedPrice.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                                                    <small>${rec.discountPercent.toFixed(1)}% indirim</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card bg-warning text-dark text-center">
+                                                <div class="card-body">
+                                                    <h6 class="card-title mb-2">Kazanma Olasılığı</h6>
+                                                    <h3 class="mb-0">~${rec.winProbability}%</h3>
+                                                    <small>Tahmini</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card bg-info text-white text-center">
+                                                <div class="card-body">
+                                                    <h6 class="card-title mb-2">Risk Bazlı Öneri</h6>
+                                                    <p class="mb-0 small">${rec.strategy}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card mb-3 border-success">
+                                        <div class="card-header bg-light">
+                                            <strong><i class="bi bi-lightbulb text-success"></i> AI Stratejisi</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="mb-0">${rec.explanation}</p>
+                                        </div>
+                                    </div>
+
+                                    ${rec.warnings && rec.warnings.length > 0 ? `
+                                    <div class="alert alert-warning">
+                                        <strong><i class="bi bi-exclamation-triangle"></i> Dikkat Edilmesi Gerekenler:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            ${rec.warnings.map(w => `<li>${w}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                    ` : ''}
+
+                                    ${rec.itemRecommendations && rec.itemRecommendations.length > 0 ? `
+                                    <div class="card border-info">
+                                        <div class="card-header bg-light">
+                                            <strong><i class="bi bi-list-check"></i> Kalem Bazlı Öneriler</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0">
+                                                ${rec.itemRecommendations.map(r => `<li>${r}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                `;
+                            }
+
+                            // AI önerisini localStorage'a kaydet (Step 9 için)
+                            localStorage.setItem('ai_recommendation', JSON.stringify(rec));
+
+                            aiBtn.innerHTML = '<i class="bi bi-check-circle"></i> AI Önerisi Alındı';
+                            aiBtn.classList.remove('btn-success');
+                            aiBtn.classList.add('btn-outline-success');
+                        } else {
+                            Swal.fire({
+                                title: 'Hata!',
+                                text: data.message,
+                                icon: 'error',
+                                confirmButtonText: 'Tamam'
+                            });
+                            aiBtn.disabled = false;
+                            aiBtn.innerHTML = '<i class="bi bi-stars"></i> AI Fiyat Önerisi Al';
+                        }
+                    } catch (error) {
+                        console.error('AI öneri hatası:', error);
+                        Swal.fire({
+                            title: 'Bağlantı Hatası!',
+                            text: 'AI önerisi alınırken hata oluştu: ' + error.message,
+                            icon: 'error',
+                            confirmButtonText: 'Tamam'
+                        });
+                        aiBtn.disabled = false;
+                        aiBtn.innerHTML = '<i class="bi bi-stars"></i> AI Fiyat Önerisi Al';
+                    }
+                });
+            }
+
+            // Step 9: AI önerisini göster (eğer varsa)
+            const step9AiDiv = document.getElementById('step9AiRecommendation');
+            const step9DefaultDiv = document.getElementById('step9DefaultRecommendation');
+
+            if (step9AiDiv) {
+                const aiRecString = localStorage.getItem('ai_recommendation');
+                if (aiRecString) {
+                    try {
+                        const aiRec = JSON.parse(aiRecString);
+
+                        // Varsayılan öneriyi gizle
+                        if (step9DefaultDiv) {
+                            step9DefaultDiv.style.display = 'none';
+                        }
+
+                        // AI önerisini göster
+                        step9AiDiv.innerHTML = `
+                            <div class="alert alert-success mb-3">
+                                <h5><i class="bi bi-robot"></i> Gemini AI Nihai Önerisi</h5>
+                                <p class="mb-2"><strong>${aiRec.strategy}</strong></p>
+                                <p class="small">${aiRec.explanation}</p>
+                            </div>
+
+                            <div class="card mb-3 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <strong><i class="bi bi-lightbulb"></i> Önerilen Teklif Stratejisi</strong>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-center mb-3">
+                                        <div class="col-md-4">
+                                            <h6 class="text-muted">Önerilen Fiyat</h6>
+                                            <h3 class="text-success">₺${aiRec.suggestedPrice.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6 class="text-muted">İndirim Oranı</h6>
+                                            <h3 class="text-info">${aiRec.discountPercent.toFixed(1)}%</h3>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6 class="text-muted">Kazanma Olasılığı</h6>
+                                            <h3 class="text-warning">~${aiRec.winProbability}%</h3>
+                                        </div>
+                                    </div>
+
+                                    ${aiRec.warnings && aiRec.warnings.length > 0 ? `
+                                    <div class="alert alert-warning mb-3">
+                                        <strong><i class="bi bi-exclamation-triangle"></i> Dikkat Edilmesi Gerekenler:</strong>
+                                        <ul class="mb-0 mt-2">
+                                            ${aiRec.warnings.map(w => `<li>${w}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                    ` : ''}
+
+                                    ${aiRec.itemRecommendations && aiRec.itemRecommendations.length > 0 ? `
+                                    <div class="card border-info">
+                                        <div class="card-header bg-light">
+                                            <strong><i class="bi bi-list-check"></i> Kalem Bazlı Öneriler</strong>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="mb-0">
+                                                ${aiRec.itemRecommendations.map(r => `<li>${r}</li>`).join('')}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    } catch (e) {
+                        console.error('AI öneri parse hatası:', e);
+                    }
+                }
+            }
+        });
+
+        // Reset Analyses Button
+        const resetAnalysesBtn = document.getElementById('resetAnalysesBtn');
+        if (resetAnalysesBtn) {
+            resetAnalysesBtn.addEventListener('click', async () => {
+                const result = await Swal.fire({
+                    title: 'DİKKAT!',
+                    html: 'Tüm yüklü dökümanlar ve analizler silinecek!<br><br><strong>Bu işlem geri alınamaz.</strong><br>Devam etmek istediğinize emin misiniz?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-trash"></i> Evet, Sil',
+                    cancelButtonText: 'İptal',
+                    customClass: {
+                        popup: 'border-0 shadow-lg'
+                    }
+                });
+
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                resetAnalysesBtn.disabled = true;
+                resetAnalysesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Siliniyor...';
+
+                try {
+                    const response = await fetch('@Url.Action("ResetAnalyses", "Tender")?tenderId=@Model.Id', {
+                        method: 'POST'
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        await Swal.fire({
+                            title: 'Başarılı!',
+                            text: data.message,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        location.reload();
+                    } else {
+                        Swal.fire({
+                            title: 'Hata!',
+                            text: data.message,
+                            icon: 'error',
+                            confirmButtonText: 'Tamam'
+                        });
+                        resetAnalysesBtn.disabled = false;
+                        resetAnalysesBtn.innerHTML = '<i class="bi bi-trash"></i> Tüm Dökümanları Sil ve Yeniden Başlat';
+                    }
+                } catch (error) {
+                    Swal.fire({
+                        title: 'Bağlantı Hatası!',
+                        text: error.message,
+                        icon: 'error',
+                        confirmButtonText: 'Tamam'
+                    });
+                    resetAnalysesBtn.disabled = false;
+                    resetAnalysesBtn.innerHTML = '<i class="bi bi-trash"></i> Tüm Dökümanları Sil ve Yeniden Başlat';
+                }
+            });
+        }
+    </script>
+}

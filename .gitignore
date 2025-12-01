@@ -1,0 +1,41 @@
+# Build results
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Backups
+Backups/
+*.zip
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# NuGet Packages
+*.nupkg
+
+# Sensitive data - API Keys
+appsettings.Development.json
+appsettings.json
+*.pfx
+*.p12
+
+# Azure publish profiles
+*.pubxml
+*.publishsettings
+
+# Logs
+*.log
+logs/

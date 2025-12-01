@@ -1,0 +1,402 @@
+<!-- Doküman Yükleme Formu (Step 1 için) -->
+<div class="col-12">
+    <div class="card border-primary">
+        <div class="card-header bg-primary text-white">
+            <h6 class="mb-0">
+                <i class="bi bi-cloud-upload"></i> Dökümanları Yükleyin
+            </h6>
+        </div>
+        <div class="card-body">
+            <!-- Drag & Drop Zone -->
+            <div id="dropZone" class="border border-3 border-dashed rounded-3 p-5 text-center mb-4" style="background-color: #f8f9fa; cursor: pointer; transition: all 0.3s;">
+                <i class="bi bi-cloud-arrow-up" style="font-size: 3rem; color: #6c757d;"></i>
+                <h5 class="mt-3">Dosyaları buraya sürükleyin veya tıklayın</h5>
+                <p class="text-muted mb-0">Tüm dosya formatları desteklenir (PDF, DOC, DOCX, XLS, XLSX, ZIP, vb.)</p>
+            </div>
+
+            <!-- Dosya Input (hidden) -->
+            <input type="file" id="fileInput" multiple style="display: none;" />
+
+            <!-- Manuel Seçim Kartları -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="card h-100 file-card" data-type="teknik">
+                        <div class="card-body text-center">
+                            <i class="bi bi-gear text-primary" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2 mb-1">Teknik Şartname</h6>
+                            <small class="text-muted" id="teknik-status">Seçilmedi</small>
+                            <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2 select-file-btn" data-type="teknik">
+                                <i class="bi bi-folder2-open"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 file-card" data-type="idari">
+                        <div class="card-body text-center">
+                            <i class="bi bi-file-earmark-ruled text-success" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2 mb-1">İdari Şartname</h6>
+                            <small class="text-muted" id="idari-status">Seçilmedi</small>
+                            <button type="button" class="btn btn-sm btn-outline-success w-100 mt-2 select-file-btn" data-type="idari">
+                                <i class="bi bi-folder2-open"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 file-card" data-type="sozlesme">
+                        <div class="card-body text-center">
+                            <i class="bi bi-file-earmark-check text-info" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2 mb-1">Sözleşme Tasarısı</h6>
+                            <small class="text-muted" id="sozlesme-status">Seçilmedi</small>
+                            <button type="button" class="btn btn-sm btn-outline-info w-100 mt-2 select-file-btn" data-type="sozlesme">
+                                <i class="bi bi-folder2-open"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 file-card" data-type="bftc">
+                        <div class="card-body text-center">
+                            <i class="bi bi-table text-warning" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2 mb-1">BFTC</h6>
+                            <small class="text-muted" id="bftc-status">Seçilmedi</small>
+                            <button type="button" class="btn btn-sm btn-outline-warning w-100 mt-2 select-file-btn" data-type="bftc">
+                                <i class="bi bi-folder2-open"></i> Dosya Seç
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100 file-card" data-type="other">
+                        <div class="card-body text-center">
+                            <i class="bi bi-files text-secondary" style="font-size: 2rem;"></i>
+                            <h6 class="mt-2 mb-1">Ek Dökümanlar</h6>
+                            <small class="text-muted" id="other-status">Seçilmedi</small>
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2 select-file-btn" data-type="other">
+                                <i class="bi bi-folder2-open"></i> Dosya Seç (Çoklu)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Yükleme Butonları -->
+            <div id="uploadButtons" style="display: none;">
+                <button type="button" class="btn btn-success btn-lg w-100" id="uploadFilesBtn">
+                    <i class="bi bi-cloud-upload"></i> Dosyaları Yükle
+                </button>
+            </div>
+
+            <!-- Analiz Butonu (yükleme sonrası görünür) -->
+            <div id="analyzeButtons" style="display: none;">
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> Dosyalar başarıyla yüklendi!
+                </div>
+                <button type="button" class="btn btn-primary btn-lg w-100" id="startAnalysisBtn">
+                    <i class="bi bi-robot"></i> Analiz Et
+                </button>
+            </div>
+
+            <!-- Progress Göstergesi -->
+            <div id="uploadProgress" class="mt-3" style="display:none;"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .file-card {
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+
+    .file-card.selected {
+        border-color: #28a745;
+        box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+    }
+
+    #dropZone.drag-over {
+        background-color: #e7f3ff !important;
+        border-color: #0d6efd !important;
+    }
+</style>
+
+<script>
+// Dosya yönetimi için global değişkenler
+const selectedFiles = {
+    teknik: null,
+    idari: null,
+    sozlesme: null,
+    bftc: null,
+    other: []
+};
+
+const tenderId = '@Model.Id';
+
+// Drag & Drop Zone
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+// Drop zone'a tıklayınca file input aç
+dropZone.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// Drag over
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+
+// Drag leave
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+});
+
+// Drop
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+
+    const files = Array.from(e.dataTransfer.files);
+    handleDroppedFiles(files);
+});
+
+// File input change
+fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    handleDroppedFiles(files);
+});
+
+// Dosyaları otomatik kategorize et
+function handleDroppedFiles(files) {
+    files.forEach(file => {
+        const fileName = file.name.toLowerCase();
+
+        if (fileName.includes('teknik') && !selectedFiles.teknik) {
+            selectedFiles.teknik = file;
+            updateFileStatus('teknik', file.name);
+        } else if (fileName.includes('idari') && !selectedFiles.idari) {
+            selectedFiles.idari = file;
+            updateFileStatus('idari', file.name);
+        } else if ((fileName.includes('sozlesme') || fileName.includes('sözleşme')) && !selectedFiles.sozlesme) {
+            selectedFiles.sozlesme = file;
+            updateFileStatus('sozlesme', file.name);
+        } else if (fileName.includes('bftc') && !selectedFiles.bftc) {
+            selectedFiles.bftc = file;
+            updateFileStatus('bftc', file.name);
+        } else {
+            selectedFiles.other.push(file);
+            updateFileStatus('other', `${selectedFiles.other.length} dosya`);
+        }
+    });
+
+    updateUploadButton();
+}
+
+// Manuel dosya seçimi
+document.querySelectorAll('.select-file-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.type;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = (type === 'other');
+
+        input.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+
+            if (type === 'other') {
+                selectedFiles.other = [...selectedFiles.other, ...files];
+                updateFileStatus('other', `${selectedFiles.other.length} dosya`);
+            } else {
+                selectedFiles[type] = files[0];
+                updateFileStatus(type, files[0].name);
+            }
+
+            updateUploadButton();
+        });
+
+        input.click();
+    });
+});
+
+// Dosya durumunu güncelle
+function updateFileStatus(type, fileName) {
+    const statusEl = document.getElementById(`${type}-status`);
+    statusEl.textContent = fileName;
+    statusEl.classList.remove('text-muted');
+    statusEl.classList.add('text-success');
+
+    const card = document.querySelector(`.file-card[data-type="${type}"]`);
+    card.classList.add('selected');
+}
+
+// Yükleme butonunu göster/gizle
+function updateUploadButton() {
+    const hasFiles = selectedFiles.teknik || selectedFiles.idari || selectedFiles.sozlesme ||
+                     selectedFiles.bftc || selectedFiles.other.length > 0;
+
+    document.getElementById('uploadButtons').style.display = hasFiles ? 'block' : 'none';
+}
+
+// Dosyaları yükle
+document.getElementById('uploadFilesBtn').addEventListener('click', async () => {
+    const formData = new FormData();
+    formData.append('tenderId', tenderId);
+
+    if (selectedFiles.teknik) formData.append('teknik', selectedFiles.teknik);
+    if (selectedFiles.idari) formData.append('idari', selectedFiles.idari);
+    if (selectedFiles.sozlesme) formData.append('sozlesme', selectedFiles.sozlesme);
+    if (selectedFiles.bftc) formData.append('bftc', selectedFiles.bftc);
+
+    selectedFiles.other.forEach(file => {
+        formData.append('other', file);
+    });
+
+    const uploadBtn = document.getElementById('uploadFilesBtn');
+    const progressDiv = document.getElementById('uploadProgress');
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Yükleniyor...';
+
+    progressDiv.style.display = 'block';
+    progressDiv.innerHTML = `
+        <div class="alert alert-info">
+            <i class="bi bi-hourglass-split"></i> Dosyalar yükleniyor...
+        </div>
+        <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+        </div>
+    `;
+
+    try {
+        const response = await fetch('/Tender/UploadMultipleDocuments', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            progressDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> ${result.message}
+                </div>
+            `;
+
+            // Yükleme butonlarını gizle, Analiz Et butonunu göster
+            document.getElementById('uploadButtons').style.display = 'none';
+            document.getElementById('analyzeButtons').style.display = 'block';
+        } else {
+            progressDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Hata: ${result.message}
+                </div>
+            `;
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Dosyaları Yükle';
+        }
+    } catch (error) {
+        progressDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Bağlantı hatası: ${error.message}
+            </div>
+        `;
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Dosyaları Yükle';
+    }
+});
+
+// Analiz başlat
+document.getElementById('startAnalysisBtn').addEventListener('click', async () => {
+    const analyzeBtn = document.getElementById('startAnalysisBtn');
+    const progressDiv = document.getElementById('uploadProgress');
+
+    analyzeBtn.disabled = true;
+    analyzeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analizler başlatılıyor...';
+
+    progressDiv.innerHTML = `
+        <div class="alert alert-info">
+            <i class="bi bi-robot"></i> AI analizleri başlatılıyor...
+        </div>
+        <div class="progress mb-2">
+            <div id="analysisProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
+        </div>
+        <small class="text-muted" id="analysisStatus">Analizler başlatılıyor...</small>
+    `;
+
+    try {
+        // Analizleri başlat
+        const response = await fetch('/Tender/StartDocumentAnalyses?tenderId=' + tenderId, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Polling ile analiz durumunu kontrol et
+            let completedCount = 0;
+            const totalCount = result.totalDocuments;
+            let pollAttempts = 0;
+            const maxPollAttempts = 60; // 2 dakika max
+
+            const checkInterval = setInterval(async () => {
+                pollAttempts++;
+
+                try {
+                    const checkResponse = await fetch(`/Tender/CheckAnalysisStatus?tenderId=${tenderId}`);
+                    const checkData = await checkResponse.json();
+
+                    completedCount = checkData.completedCount;
+                    const progress = Math.round((completedCount / totalCount) * 100);
+
+                    document.getElementById('analysisProgressBar').style.width = progress + '%';
+                    document.getElementById('analysisProgressBar').textContent = progress + '%';
+                    document.getElementById('analysisStatus').textContent = `${completedCount} / ${totalCount} analiz tamamlandı`;
+
+                    // Tüm analizler tamamlandı
+                    if (completedCount >= totalCount) {
+                        clearInterval(checkInterval);
+
+                        progressDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i> Tüm analizler tamamlandı! Yönlendiriliyorsunuz...
+                            </div>
+                        `;
+
+                        setTimeout(() => {
+                            window.location.href = '?step=2';
+                        }, 1500);
+                    }
+
+                    // Timeout
+                    if (pollAttempts >= maxPollAttempts) {
+                        clearInterval(checkInterval);
+                        progressDiv.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> Analizler beklenenden uzun sürüyor.
+                                <a href="?step=2" class="alert-link">Manuel olarak devam et</a>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000); // Her 2 saniyede kontrol
+        } else {
+            progressDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Hata: ${result.message}
+                </div>
+            `;
+        }
+    } catch (error) {
+        progressDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Bağlantı hatası: ${error.message}
+            </div>
+        `;
+    }
+});
+</script>

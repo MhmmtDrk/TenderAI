@@ -1,0 +1,203 @@
+@model IEnumerable<TenderAI.Core.DTOs.TenderDto>
+@{
+    ViewData["Title"] = "İhaleler";
+}
+
+<div class="mb-4">
+    <h1 class="h3 mb-3">📄 İhaleler</h1>
+    <p class="text-muted">Aktif kamu ihalelerini listele, ara ve analiz et</p>
+</div>
+
+<!-- Arama ve Filtreleme -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" asp-controller="Tender" asp-action="Index">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="keyword" class="form-control"
+                           placeholder="İhale adı, İKN veya kurum ara..."
+                           value="@ViewBag.Keyword">
+                </div>
+                <div class="col-md-3">
+                    <select name="province" class="form-select">
+                        <option value="">Tüm İller</option>
+                        @if (ViewBag.Provinces != null)
+                        {
+                            foreach (var prov in ViewBag.Provinces as List<string>)
+                            {
+                                <option value="@prov" selected="@(ViewBag.Province == prov)">@prov</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        🔍 Ara
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a asp-action="Index" class="btn btn-outline-secondary w-100">
+                        🔄 Temizle
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- İhale Listesi -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Toplam @Model.Count() İhale</h5>
+        <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-outline-secondary active">Liste</button>
+            <button type="button" class="btn btn-outline-secondary">Grid</button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 120px;">İKN</th>
+                            <th>İhale Bilgileri</th>
+                            <th style="width: 100px;">İl</th>
+                            <th style="width: 120px;">Son Tarih</th>
+                            <th style="width: 150px;">Yaklaşık Maliyet</th>
+                            <th style="width: 120px;">Risk</th>
+                            <th style="width: 150px;">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tender in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="small">@tender.IKN</code>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong class="text-primary">@tender.Title</strong>
+                                        <br />
+                                        <small class="text-muted">
+                                            <i class="bi bi-building"></i> @tender.AuthorityName
+                                        </small>
+                                        <br />
+                                        <span class="badge bg-light text-dark mt-1">@tender.TenderType</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">@tender.Province</span>
+                                </td>
+                                <td>
+                                    @{
+                                        var daysLeft = (tender.BidDeadline - DateTime.Now).Days;
+                                        var dateClass = daysLeft <= 3 ? "text-danger" : daysLeft <= 7 ? "text-warning" : "text-muted";
+                                    }
+                                    <div class="@dateClass">
+                                        <strong>@tender.BidDeadline.ToString("dd.MM.yyyy")</strong>
+                                        <br />
+                                        <small>@daysLeft gün kaldı</small>
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong>₺@tender.EstimatedCost.ToString("N0")</strong>
+                                </td>
+                                <td>
+                                    @if (tender.RiskScore.HasValue)
+                                    {
+                                        var badgeClass = tender.RiskLevel switch
+                                        {
+                                            "Düşük" => "bg-success",
+                                            "Orta" => "bg-warning text-dark",
+                                            "Yüksek" => "bg-danger",
+                                            "Çok Yüksek" => "bg-danger",
+                                            _ => "bg-secondary"
+                                        };
+                                        <div>
+                                            <span class="badge @badgeClass">
+                                                @tender.RiskLevel
+                                            </span>
+                                            <br />
+                                            <small class="text-muted">@tender.RiskScore.Value.ToString("F0")/100</small>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-light text-dark">
+                                            Analiz Yok
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-grid gap-2">
+                                        <a asp-action="Details" asp-route-ikn="@tender.IKN"
+                                           class="btn btn-sm btn-outline-primary">
+                                            📋 Detay
+                                        </a>
+                                        @if (!tender.RiskScore.HasValue)
+                                        {
+                                            <form asp-action="StartAnalysis" method="post" class="d-inline">
+                                                <input type="hidden" name="tenderId" value="@tender.Id" />
+                                                <button type="submit" class="btn btn-sm btn-success w-100">
+                                                    🤖 Analiz Et
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <a asp-action="AnalysisWizard" asp-route-id="@tender.Id"
+                                               class="btn btn-sm btn-info">
+                                                📊 Analiz Gör
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="bi bi-inbox" style="font-size: 4rem; color: #ccc;"></i>
+                </div>
+                <h5>İhale Bulunamadı</h5>
+                <p class="text-muted">
+                    @if (!string.IsNullOrWhiteSpace(ViewBag.Keyword as string))
+                    {
+                        <span>Arama kriterlerinize uygun ihale bulunamadı. Lütfen farklı kriterler deneyin.</span>
+                    }
+                    else
+                    {
+                        <span>Henüz sistemde ihale kaydı bulunmuyor.</span>
+                        <br />
+                        <small>DataCollector servisi çalıştığında EKAP'tan ihaleler otomatik olarak çekilecektir.</small>
+                    }
+                </p>
+                <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary mt-3">
+                    Dashboard'a Dön
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // İhale listesi interaktif özellikleri
+        document.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+            });
+            row.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+            });
+        });
+    </script>
+}

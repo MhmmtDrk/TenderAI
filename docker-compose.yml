@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Veritabanı
+  postgres:
+    image: postgres:16-alpine
+    container_name: tenderai-postgres
+    environment:
+      POSTGRES_DB: tenderai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tenderai-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: tenderai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - tenderai-network
+
+  # Elasticsearch (Şartname tam metin arama)
+  elasticsearch:
+    image: elasticsearch:8.10.0
+    container_name: tenderai-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - tenderai-network
+
+  # TenderAI Web Application
+  web:
+    build:
+      context: .
+      dockerfile: TenderAI.Web/Dockerfile
+    container_name: tenderai-web
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=tenderai;Username=postgres;Password=postgres123;Port=5432
+      - OpenAI__ApiKey=${OPENAI_API_KEY}
+      - TenderAI__EkapApiUrl=http://ihale-mcp:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - tenderai-network
+
+  # Data Collector Worker Service
+  datacollector:
+    build:
+      context: .
+      dockerfile: TenderAI.DataCollector/Dockerfile
+    container_name: tenderai-datacollector
+    environment:
+      - DOTNET_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=tenderai;Username=postgres;Password=postgres123;Port=5432
+      - TenderAI__EkapApiUrl=http://ihale-mcp:8000
+      - TenderAI__DataSyncIntervalHours=6
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - tenderai-network
+
+  # İhale MCP (Python - EKAP API Wrapper)
+  ihale-mcp:
+    image: python:3.11-slim
+    container_name: tenderai-ihale-mcp
+    working_dir: /app
+    command: >
+      sh -c "pip install fastapi uvicorn requests beautifulsoup4 &&
+             python -m uvicorn main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ihale-mcp:/app
+    networks:
+      - tenderai-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+
+networks:
+  tenderai-network:
+    driver: bridge

@@ -1,0 +1,22 @@
+[Unit]
+Description=TenderAI - AI-Powered Tender Analysis System
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/tenderai
+ExecStart=/usr/bin/dotnet /var/www/tenderai/TenderAI.Web.dll
+Restart=always
+RestartSec=10
+KillSignal=SIGINT
+SyslogIdentifier=tenderai
+User=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Performance and security settings
+LimitNOFILE=65536
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

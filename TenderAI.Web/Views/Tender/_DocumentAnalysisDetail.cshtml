@@ -1,0 +1,186 @@
+@model TenderAI.Domain.Entities.DocumentAnalysis
+@functions {
+    private List<string> ParseToList(string? json)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(json)) return new List<string>();
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+}
+
+@{
+    var riskBadgeClass = Model.RiskLevel switch
+    {
+        "Düşük" => "bg-success",
+        "Orta" => "bg-warning text-dark",
+        "Yüksek" => "bg-danger",
+        "Çok Yüksek" => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
+
+<!-- Risk Skoru Özeti -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center border-primary">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Risk Skoru</h6>
+                <div class="display-4 fw-bold my-3">@Model.RiskScore</div>
+                <span class="badge @riskBadgeClass fs-6">@Model.RiskLevel Risk</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center border-info">
+            <div class="card-body">
+                <h6 class="card-title text-muted">Analiz Süresi</h6>
+                <div class="h3 fw-bold my-3">@Model.AnalysisDuration.ToString("F1")s</div>
+                <small class="text-muted">@Model.AnalyzedAt.ToString("dd.MM.yyyy HH:mm")</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h6 class="card-title text-muted">AI Model</h6>
+                <div class="h5 fw-bold my-3">@Model.AnalysisModel</div>
+                @if (Model.TokensUsed.HasValue)
+                {
+                    <small class="text-muted">@Model.TokensUsed.Value tokens</small>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Risk Detayları -->
+<div class="row mb-4">
+    <div class="col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0"><i class="bi bi-currency-dollar"></i> Finansal Riskler</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.FinancialRisks))
+                {
+                    var risks = ParseToList(Model.FinancialRisks);
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var risk in risks)
+                        {
+                            <li class="mb-2"><i class="bi bi-exclamation-triangle text-danger me-2"></i>@risk</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Finansal risk bulunmamaktadır.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0"><i class="bi bi-gear"></i> Operasyonel Riskler</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.OperationalRisks))
+                {
+                    var risks = ParseToList(Model.OperationalRisks);
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var risk in risks)
+                        {
+                            <li class="mb-2"><i class="bi bi-exclamation-circle text-warning me-2"></i>@risk</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Operasyonel risk bulunmamaktadır.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="bi bi-shield-check"></i> Hukuki Riskler</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.LegalRisks))
+                {
+                    var risks = ParseToList(Model.LegalRisks);
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var risk in risks)
+                        {
+                            <li class="mb-2"><i class="bi bi-exclamation-diamond text-info me-2"></i>@risk</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Hukuki risk bulunmamaktadır.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Önemli Noktalar ve Öneriler -->
+<div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h6 class="mb-0"><i class="bi bi-star"></i> Önemli Noktalar</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.KeyPoints))
+                {
+                    var points = ParseToList(Model.KeyPoints);
+                    <ul class="mb-0">
+                        @foreach (var point in points)
+                        {
+                            <li class="mb-2">@point</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Önemli nokta bulunamadı.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Öneriler</h6>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Model.Recommendations))
+                {
+                    var recommendations = ParseToList(Model.Recommendations);
+                    <ul class="mb-0">
+                        @foreach (var rec in recommendations)
+                        {
+                            <li class="mb-2">@rec</li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Öneri bulunamadı.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
