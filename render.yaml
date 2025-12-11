@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: tenderai
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./TenderAI.Web/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: OpenAI__ApiKey
+        sync: false
+      - key: OpenAI__Model
+        value: gpt-4-turbo
+      - key: Gemini__ApiKey
+        sync: false
+      - key: Anthropic__ApiKey
+        sync: false
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: TenderAI__EkapApiUrl
+        value: http://localhost:8000
+      - key: TenderAI__DataSyncIntervalHours
+        value: 6
+    healthCheckPath: /
