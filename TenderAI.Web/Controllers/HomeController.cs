@@ -401,7 +401,7 @@ public class HomeController : Controller
         try
         {
             var apiKey = config["Gemini:ApiKey"] ?? throw new Exception("Gemini API Key bulunamadı");
-            var model = "gemini-1.5-flash"; // Daha stabil model - 1500 istek/gün (2.5-flash: 20 istek/gün)
+            var model = "gemini-2.0-flash-001"; // Stable version - daha yüksek free tier quota
 
             // Doküman tipine özel detaylı prompt oluştur
             string prompt;
